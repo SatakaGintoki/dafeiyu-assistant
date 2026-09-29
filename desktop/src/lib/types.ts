@@ -5,8 +5,8 @@ export type Connection = 'connecting' | 'online' | 'offline' | 'unauthorized';
 export type BackendPetState = 'idle' | 'thinking' | 'working' | 'waiting';
 export type PanelTab = 'chat' | 'tasks' | 'settings';
 export type PetSize = 's' | 'm' | 'l';
-export interface PetPrefs { size: PetSize; walk: boolean; topmost: boolean }
-export const defaultPrefs: PetPrefs = { size: 'm', walk: true, topmost: true };
+export interface PetPrefs { size: PetSize; walk: boolean; topmost: boolean; focus?: boolean }
+export const defaultPrefs: PetPrefs = { size: 'm', walk: true, topmost: true, focus:false };
 
 /** What the transport delivers: backend events, sync requests, and connection changes. */
 export type StreamItem =

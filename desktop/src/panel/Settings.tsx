@@ -5,6 +5,7 @@ import { ApiError } from '../lib/api';
 import { useStore } from '../lib/store';
 import type { Executor, PetSize, Settings as SettingsType } from '../lib/types';
 import { useToast } from '../ui/toast';
+import { WorkspaceSettings } from './WorkspaceSettings';
 
 type Form = Omit<SettingsType, 'hasApiKey'> & { apiKey: string };
 const runtimes: { id: SettingsType['runtime']; label: string; hint: string }[] = [
@@ -78,6 +79,7 @@ export function Settings() {
   return (
     <div className="settings">
       <div className="settings-scroll">
+        <WorkspaceSettings />
         <section className="group">
           <h4>大肥鱼的大脑</h4>
           <Segmented id="runtime" value={form.runtime} options={runtimes} onChange={v => set('runtime', v)} />
@@ -104,6 +106,7 @@ export function Settings() {
             ))}
           </div>
           <label className="field"><span>工作目录（绝对路径）</span><input value={form.workspace} onChange={e => set('workspace', e.target.value)} /></label>
+          {host.kind==='electron'&&<button className="btn" onClick={()=>void host.chooseFolder().then(path=>{if(path)set('workspace',path);})}>选择文件夹</button>}
           <div className="row2">
             <label className="field"><span>Codex 路径</span><input value={form.codexPath} onChange={e => set('codexPath', e.target.value)} placeholder="自动查找" /></label>
             <label className="field"><span>Claude 路径</span><input value={form.claudePath} onChange={e => set('claudePath', e.target.value)} placeholder="自动查找" /></label>
@@ -120,6 +123,7 @@ export function Settings() {
 
         <section className="group">
           <h4>桌宠</h4>
+          <div className="pref"><span>专注模式（暂停闲聊、走动和置顶）</span><Toggle label="专注模式" on={!!prefs.focus} onChange={v=>host.prefs.set({focus:v})}/></div>
           <div className="pref"><span>大小</span>
             <Segmented<PetSize> id="size" value={prefs.size} options={[{ id: 's', label: '小' }, { id: 'm', label: '标准' }, { id: 'l', label: '大' }]} onChange={v => host.prefs.set({ size: v })} />
           </div>

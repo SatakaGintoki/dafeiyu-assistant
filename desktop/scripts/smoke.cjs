@@ -55,6 +55,20 @@ app.whenReady().then(async () => {
       const tasks = await panel.webContents.executeJavaScript('document.body.innerText');
       assert.ok(tasks.includes('桌面联通测试'), 'Live task did not reach the renderer');
       console.log('Demo chat, task execution and live renderer updates passed.');
+      assert.equal((await call('POST','/api/v1/projects',{name:'界面测试项目',workspace:state.body.settings.workspace,executor:'demo',notes:'测试项目说明'})).status,201);
+      assert.equal((await call('POST','/api/v1/templates',{name:'我的周报',instruction:'汇总本周工作，不修改原文件。'})).status,201);
+      await panel.webContents.executeJavaScript("window.dayu.panel.open('settings')");
+      await pause(900);
+      const settingsText=await panel.webContents.executeJavaScript('document.body.innerText');
+      for(const label of ['使用检查 · v0.2.0','我的项目','管理项目（1）','管理模板（1）'])assert.ok(settingsText.includes(label),label);
+      writeFileSync(join(output,'settings.png'),(await panel.webContents.capturePage()).toPNG());
+      await panel.webContents.executeJavaScript("window.dayu.panel.open('tasks')");await pause(400);
+      await panel.webContents.executeJavaScript("document.querySelector('[aria-label=\"新任务\"]').click()");await pause(600);
+      assert.ok((await panel.webContents.executeJavaScript('document.body.innerText')).includes('保存为模板'));
+      const layout=await panel.webContents.executeJavaScript("(()=>{const e=document.querySelector('.sheet');const r=e.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:innerHeight,scroll:e.scrollHeight>e.clientHeight};})()");
+      assert.ok(layout.top>=0&&layout.bottom<=layout.height+1,'New task sheet must remain inside viewport');
+      writeFileSync(join(output,'new-task.png'),(await panel.webContents.capturePage()).toPNG());
+      console.log('Projects, diagnostics, templates and scrollable task form passed.');
     }
     for (const win of windows) {
       const result = await win.webContents.executeJavaScript(`({ view: document.documentElement.dataset.view, bridge: !!window.dayu, nodes: document.querySelector('#root').childElementCount, imagesReady: [...document.images].every(image => image.complete && image.naturalWidth > 0) })`);

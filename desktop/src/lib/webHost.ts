@@ -77,6 +77,8 @@ export function webHost(): { host: Host; desk: WebDesk } {
   };
 
   const host: Host = {
+    chooseFolder:async()=>undefined,
+    taskFiles:async()=>({ok:false,error:'浏览器预览不能打开本机文件，请使用桌面版'}),
     kind: 'web',
     transport,
     pet: {

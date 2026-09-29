@@ -8,6 +8,8 @@ function on<T>(channel: string, listener: (value: T) => void) {
 
 // Only narrow, purpose-built calls cross the bridge; the backend token stays in the main process.
 contextBridge.exposeInMainWorld('dayu', {
+  chooseFolder:()=>ipcRenderer.invoke('folder:choose'),
+  taskFiles:(id:string,action:string,index?:number)=>ipcRenderer.invoke('task:files',{id,action,index}),
   api: {
     request: (method: string, path: string, body?: unknown, headers?: Record<string, string>) => ipcRenderer.invoke('api:request', { method, path, body, headers }),
     connection: () => ipcRenderer.invoke('api:connection'),

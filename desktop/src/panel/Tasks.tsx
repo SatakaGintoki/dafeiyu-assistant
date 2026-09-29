@@ -8,6 +8,7 @@ import { IconClose, IconFolder, IconPlus, IconReply, IconRetry, IconStop, IconTe
 import { useToast } from '../ui/toast';
 import { Markdown } from './Markdown';
 import { StatusIcon, statusLabel } from './StatusIcon';
+import type { Project,TaskTemplate } from '../../../shared/types';
 
 type Filter = 'all' | 'active' | 'done' | 'failed';
 const filters: { id: Filter; label: string }[] = [
@@ -92,7 +93,7 @@ export function Tasks({ focusId, onFocused }: { focusId?: string; onFocused: () 
 }
 
 function TaskCard({ task, open, onToggle }: { task: Task; open: boolean; onToggle: () => void }) {
-  const { store } = useApp();
+  const { store,host } = useApp();
   const toast = useToast();
   const [followup, setFollowup] = useState('');
   const [pending, setPending] = useState(false);
@@ -144,6 +145,14 @@ function TaskCard({ task, open, onToggle }: { task: Task; open: boolean; onToggl
                 </section>
               )}
               {task.result && <section><h5>结果</h5><div className="result"><Markdown text={task.result} /></div></section>}
+              {!isActive&&<section><h5>交付检查</h5><p className="hint">{task.status==='succeeded'?'执行器已报告结束；请结合结果和实际文件验收。':'任务未成功完成，也可能已修改部分文件。'}</p>
+                <button className="btn" onClick={()=>void host.taskFiles(task.id,'reveal',-1).then(r=>toast(r.ok?'已在文件管理器中定位':r.error||'无法定位',r.ok?'success':'error'))}>定位项目</button>
+              </section>}
+              {task.checkpoint&&<section><h5>文件变更与恢复</h5><p className="hint">任务前保存 {task.checkpoint.files} 个文件，跳过 {task.checkpoint.skipped} 项。{task.checkpoint.note}</p>
+                <p className="hint">{task.checkpoint.status==='complete'?`检测到 ${task.checkpoint.changes.length} 个文件变化；同时发生的人工修改也可能计入。`:'变更扫描未完整结束，可恢复任务前已保存的文件。'}</p>
+                <div className="file-changes">{task.checkpoint.changes.map((change,index)=><button className="file-change" key={change.path} disabled={change.kind==='deleted'} onClick={()=>void host.taskFiles(task.id,'reveal',index).then(r=>{if(!r.ok)toast(r.error||'无法定位','error');})}><span>{({added:'新增',modified:'修改',deleted:'删除'})[change.kind]}</span> {change.path}</button>)}</div>
+                {!isActive&&<button className="btn" disabled={pending} onClick={async()=>{setPending(true);try{const r=await host.taskFiles(task.id,'recover');toast(r.ok?'已恢复到新文件夹，原项目未覆盖':r.error||'恢复失败',r.ok?'success':'error');}finally{setPending(false);}}}>恢复任务前文件到新文件夹</button>}
+              </section>}
               {task.error && <section><h5>错误</h5><p className="error-text">{task.error}</p></section>}
               <div className="task-actions">
                 {isActive && task.status !== 'cancelling' && (
@@ -186,14 +195,21 @@ function NewTask({ onClose, onCreated }: { onClose: () => void; onCreated: (id: 
   const [instruction, setInstruction] = useState('');
   const [executor, setExecutor] = useState<Executor | ''>('');
   const [pending, setPending] = useState(false);
+  const [projects,setProjects]=useState<Project[]>([]),[templates,setTemplates]=useState<TaskTemplate[]>([]),[projectId,setProjectId]=useState('');
+  useEffect(()=>{void Promise.all([store.api.projects(),store.api.templates()]).then(([p,t])=>{setProjects(p);setTemplates(t);}).catch(()=>toast('无法加载项目或模板','error'));},[store]);
+  const suggestions=[
+    {name:'项目检查',instruction:'阅读当前项目结构和说明，找出最值得修复的三个问题，给出依据和建议。本次只分析，不修改文件。'},
+    {name:'文件整理计划',instruction:'检查当前目录的文件，提出分类、命名及归档计划，列出拟移动或重命名的文件。本次只生成计划，不移动、删除或覆盖任何文件，等待我确认。'},
+    {name:'文档摘要',instruction:'总结当前目录中可读取的文档，整理重点、待办和不确定项，写入一个新的摘要文件。保留原文档；无法读取的格式请列出来，不猜测内容。'},
+  ];
   useEffect(() => { void store.refreshExecutors(); }, [store]);
-  const chosen = executor || settings?.defaultExecutor || 'codex';
+  const chosen = executor || projects.find(p=>p.id===projectId)?.executor || settings?.defaultExecutor || 'codex';
 
   async function submit() {
     if (!title.trim() || !instruction.trim()) return;
     setPending(true);
     try {
-      const task = await store.api.createTask({ title: title.trim(), instruction: instruction.trim(), executor: chosen });
+      const task = await store.api.createTask({ title: title.trim(), instruction: instruction.trim(), executor: chosen, projectId:projectId||undefined, ...(chosen==='zcode'?{model:''}:{}) });
       store.replaceTask(task);
       onCreated(task.id);
       toast('任务已创建', 'success');
@@ -210,6 +226,10 @@ function NewTask({ onClose, onCreated }: { onClose: () => void; onCreated: (id: 
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 420, damping: 40 }}>
         <div className="sheet-grip" />
         <header><h3>交给大肥鱼一个任务</h3><button className="icon-btn" onClick={onClose} aria-label="关闭"><IconClose size={16} /></button></header>
+        <label className="field"><span>任务项目</span><select value={projectId} onChange={e=>setProjectId(e.target.value)}><option value="">当前工作目录</option>{projects.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
+        <p className="hint">{projects.find(p=>p.id===projectId)?.workspace || settings?.workspace}</p>
+        <label className="field"><span>从模板填写</span><select value="" onChange={e=>{const t=templates.find(t=>t.id===e.target.value);if(t){setTitle(t.name);setInstruction(t.instruction);}}}><option value="">选择已保存的模板</option>{templates.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label>
+        <div className="task-actions">{suggestions.map(s=><button className="btn ghost" key={s.name} onClick={()=>{setTitle(s.name);setInstruction(s.instruction);}}>{s.name}</button>)}</div>
         <label className="field"><span>标题</span>
           <input autoFocus value={title} maxLength={160} onChange={e => setTitle(e.target.value)} placeholder="例如：修复登录页样式" />
         </label>
@@ -230,6 +250,8 @@ function NewTask({ onClose, onCreated }: { onClose: () => void; onCreated: (id: 
         <button className="btn primary block" disabled={pending || !title.trim() || !instruction.trim()} onClick={() => void submit()}>
           {pending ? '创建中…' : '开始执行'}
         </button>
+        <button className="btn block" disabled={pending||!title.trim()||!instruction.trim()} onClick={async()=>{setPending(true);try{const t=await store.api.addTemplate(title,instruction);setTemplates(old=>[...old,t]);toast('模板已保存','success');}catch(error){toast(String(error),'error');}finally{setPending(false);}}}>保存为模板</button>
+        <p className="hint">开始后将在所选目录执行。真实任务会先保存有限范围的检查点；文件变更可在任务结果中查看和恢复。</p>
       </motion.div>
     </>
   );

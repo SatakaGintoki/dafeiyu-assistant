@@ -1,11 +1,21 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { join } from 'node:path';
+import { existsSync,mkdirSync,readFileSync,writeFileSync } from 'node:fs';
+import { APP_VERSION } from '../../shared/version';
 
 export class ManagedBackend {
   private child?: ChildProcess;
   private starting?: Promise<void>;
   url = '';
   constructor(private resources: string, private userData: string) {}
+  private log(event:string,detail:string=''){
+    try{
+      const directory=join(this.userData,'logs');mkdirSync(directory,{recursive:true});
+      const file=join(directory,'startup.log');
+      const previous=existsSync(file)?readFileSync(file,'utf8').slice(-24000):'';
+      writeFileSync(file,previous+JSON.stringify({at:new Date().toISOString(),version:APP_VERSION,event,detail})+'\n');
+    }catch{/* Logging must not prevent shutdown. */}
+  }
 
   start(): Promise<void> {
     if (this.starting) return this.starting;
@@ -16,6 +26,10 @@ export class ManagedBackend {
 
   private launch(): Promise<void> {
     return new Promise((resolve, reject) => {
+      this.log('backend.start');
+      if(!existsSync(join(this.resources,'runtime/node.exe'))||!existsSync(join(this.resources,'backend/server/index.mjs'))){
+        this.log('backend.files_missing');reject(new Error('运行文件缺失，请重新安装完整版本；个人数据会保留'));return;
+      }
       const env: NodeJS.ProcessEnv = { ...process.env, DAYU_USER_DATA: this.userData };
       // Never inherit developer connection overrides into the installed backend.
       for (const key of ['DAYU_API_TOKEN', 'DAYU_DATA_DIR', 'DAYU_BACKEND_URL', 'ELECTRON_RUN_AS_NODE']) delete env[key];
@@ -24,14 +38,16 @@ export class ManagedBackend {
       });
       this.child = child;
       const timer = setTimeout(() => { reject(new Error('后端启动超时，请退出后重新打开大肥鱼')); void this.stop(); }, 30000);
-      child.once('error', error => { clearTimeout(timer); reject(error); });
-      child.once('exit', () => {
+      child.once('error', error => { this.log('backend.spawn_error',(error as NodeJS.ErrnoException).code||'unknown');clearTimeout(timer); reject(error); });
+      child.once('exit', code => {
+        this.log('backend.exit',String(code));
         clearTimeout(timer);
         if (this.child === child) { this.child = undefined; this.url = ''; }
         reject(new Error('后端未能启动，请重新打开大肥鱼或检查应用数据目录'));
       });
       child.on('message', (message: any) => {
         if (message?.type === 'ready') {
+          this.log('backend.ready');
           this.url = message.url;
           clearTimeout(timer);
           resolve();

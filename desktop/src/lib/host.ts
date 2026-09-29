@@ -26,6 +26,8 @@ export interface Host {
   prefs: { get(): Promise<PetPrefs>; set(patch: Partial<PetPrefs>): void; onChange(listener: (prefs: PetPrefs) => void): Off };
   startBackend(): Promise<{ ok: boolean; error?: string }>;
   openExternal(url: string): void;
+  chooseFolder():Promise<string|undefined>;
+  taskFiles(id:string,action:'reveal'|'recover',index?:number):Promise<{ok:boolean;path?:string;error?:string}>;
 }
 
 /** Shape exposed by electron/preload.ts via contextBridge. */
@@ -45,5 +47,6 @@ export function electronHost(bridge: DayuBridge): Host {
     transport: { request: bridge.api.request, subscribe: bridge.api.onStream, connection: bridge.api.connection },
     pet: bridge.pet, panel: bridge.panel, prefs: bridge.prefs,
     startBackend: bridge.startBackend, openExternal: bridge.openExternal,
+    chooseFolder:bridge.chooseFolder,taskFiles:bridge.taskFiles,
   };
 }

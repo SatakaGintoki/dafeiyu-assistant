@@ -10,6 +10,8 @@ import { TaskManager } from './tasks';
 import { ButlerTools } from './tools';
 import { HarnessRuntime, DirectRuntime, DemoRuntime, type Runtime } from './runtime';
 import { openApiDocument } from './openapi';
+import { APP_VERSION } from '../shared/version';
+import { addWorkflows } from './workflows';
 
 export interface AppOptions { root:string; dataDir?:string; token?:string; runner?:Runner; runtimeFactory?:(config:Config,store:Store,tools:ButlerTools)=>Runtime; origins?:string[] }
 function authorized(req:Request,token:string) { const given=req.headers.authorization?.replace(/^Bearer /,'') || ''; const a=Buffer.from(given),b=Buffer.from(token);return a.length===b.length && timingSafeEqual(a,b); }
@@ -54,13 +56,14 @@ export function createApp(options:AppOptions) {
     if(shuttingDown)return res.status(503).json({error:'服务正在关闭'});
     next();
   });
-  app.get('/health',(_req,res)=>res.json({ok:true,service:'dayu-backend',version:'0.1.0'}));
+  app.get('/health',(_req,res)=>res.json({ok:true,service:'dayu-backend',version:APP_VERSION}));
   app.use(['/api','/internal'],(req,res,next)=>{
     const expected=req.originalUrl.startsWith('/internal/')?internalToken:token;
     if(!authorized(req,expected))return res.status(401).json({error:'需要有效的 Bearer Token'});
     next();
   });
   app.use(express.json({limit:'128kb'}));
+  addWorkflows(app,store,config,tasks,()=>busy,async()=>{await runtime?.close();runtime=undefined;emit('settings.updated',config.value);});
   app.get('/api/v1/state',(_req,res)=>res.json({messages:store.messages().slice(-200),tasks:store.tasks().slice(-200),settings:config.value,executors:executorCatalog(config),busy,petState}));
   app.get('/api/v1/settings',(_req,res)=>res.json(config.value));
   app.get('/api/v1/openapi.json',(_req,res)=>res.json(openApiDocument));

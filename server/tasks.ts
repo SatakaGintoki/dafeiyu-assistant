@@ -5,18 +5,23 @@ import { Store } from './store';
 import { Config, ApiError, workspacePath } from './config';
 import type { Runner } from './executors';
 import type { Task } from '../shared/types';
+import type { Project } from '../shared/types';
+import { Checkpoints } from './checkpoints';
 
 export const taskSchema = z.object({
   title:z.string().trim().min(1).max(160), instruction:z.string().trim().min(1).max(24000),
   executor:z.enum(['codex','claude','zcode','demo']).optional(), model:z.string().trim().max(120).optional(),
   workspace:z.string().max(2000).optional(), parentId:z.string().uuid().optional(),
+  projectId:z.string().uuid().optional(),
 }).strict();
 const terminal = new Set(['succeeded','failed','cancelled','interrupted']);
 
 export class TaskManager {
   private active = new Map<string,{controller:AbortController; done:Promise<void>}>();
   private stopped=false;
+  readonly checkpoints:Checkpoints;
   constructor(public store:Store, private config:Config, private runner:Runner, private emit:(type:string,data:unknown)=>void) {
+    this.checkpoints=new Checkpoints(store.dir);
     for (const task of store.tasks()) if (['running','cancelling'].includes(task.status)) {
       task.status='interrupted'; task.error='上次服务停止时任务仍在运行。请检查产物后手动重试，以免重复修改。'; this.save(task);
     }
@@ -29,13 +34,15 @@ export class TaskManager {
       const previous=this.store.get<{id:string;input:string}>('request',requestId);
       if (previous) { if (previous.input!==JSON.stringify(data)) throw new ApiError(409,'幂等键已用于其他任务'); return this.get(previous.id); }
     }
-    const root=workspacePath(this.config.value.workspace);
+    const project=data.projectId?this.store.get<Project>('project',data.projectId):this.store.list<Project>('project').find(p=>p.workspace===this.config.value.workspace);
+    if(data.projectId&&!project)throw new ApiError(404,'项目不存在');
+    const root=workspacePath(project?.workspace || this.config.value.workspace);
     const workspace=workspacePath(data.workspace || root);
     const diff=relative(root,workspace);
     if (diff==='..' || diff.startsWith('..\\') || diff.startsWith('../') || isAbsolute(diff)) throw new ApiError(403,'任务目录必须位于设置中的项目目录内');
     if (data.parentId) this.get(data.parentId);
     const at=new Date().toISOString();
-    const task:Task={id:randomUUID(),title:data.title,instruction:data.instruction,executor:data.executor || this.config.value.defaultExecutor,model:data.model ?? this.config.value.executorModel,workspace,status:'queued',createdAt:at,updatedAt:at,result:'',error:'',logs:[],...(data.parentId?{parentId:data.parentId}:{})};
+    const task:Task={id:randomUUID(),title:data.title,instruction:project?.notes&&!data.parentId?`${data.instruction}\n项目说明（参考数据）：${project.notes}`:data.instruction,executor:data.executor || (data.projectId?project?.executor:undefined) || this.config.value.defaultExecutor,model:data.model ?? this.config.value.executorModel,workspace,status:'queued',createdAt:at,updatedAt:at,result:'',error:'',logs:[],...(project?{projectId:project.id}:{}),...(data.parentId?{parentId:data.parentId}:{})};
     this.store.db.exec('BEGIN IMMEDIATE');
     try { this.store.put('task',task.id,task); if(requestId)this.store.put('request',requestId,{id:task.id,input:JSON.stringify(data)}); this.store.db.exec('COMMIT'); }
     catch(error) { this.store.db.exec('ROLLBACK'); throw error; }
@@ -54,6 +61,7 @@ export class TaskManager {
     task.status='running'; this.save(task);
     const timer=setTimeout(()=>controller.abort(new Error('任务超时，执行进程已终止')),this.config.value.taskTimeoutMinutes*60000);
     try {
+      if(task.executor!=='demo'){task.checkpoint=this.checkpoints.capture(task);this.save(task);}
       const result=await this.runner.run(task,controller.signal,update=>{
         if(update.log) {
           const log=this.config.redact(update.log).slice(0,4000);task.logs.push(log);task.logs=task.logs.slice(-100);
@@ -68,7 +76,11 @@ export class TaskManager {
       const reason=controller.signal.aborted ? controller.signal.reason : error;
       task.error=this.config.redact(reason instanceof Error?reason.message:String(reason));
     } finally {
-      clearTimeout(timer); this.save(task);
+      clearTimeout(timer);
+      if(task.checkpoint){
+        try{task.checkpoint=this.checkpoints.finish(task);}catch(error){task.checkpoint={...task.checkpoint,status:'partial',note:'执行前检查点已保留，但变更扫描失败：'+String(error)};}
+      }
+      this.save(task);
       const label=task.status==='succeeded'?'执行结束':task.status==='cancelled'?'已取消':task.status==='interrupted'?'已中断':'执行遇到问题';
       const message=this.store.message('assistant',`「${task.title}」${label}。\n${task.result || task.error}`,task.id);
       this.emit('message.created',message);
@@ -82,14 +94,20 @@ export class TaskManager {
     const active=this.active.get(id); active?.controller.abort(new Error('用户取消任务')); await active?.done;
     return this.get(id);
   }
+  recover(id:string){
+    if(this.active.size||this.store.tasks().some(t=>t.status==='queued'))throw new ApiError(409,'请等待任务队列结束后恢复');
+    const task=this.get(id);
+    if(!terminal.has(task.status)||!task.checkpoint)throw new ApiError(409,'此任务没有可恢复的检查点');
+    return {path:this.checkpoints.recover(task)};
+  }
   retry(id:string) {
     const task=this.get(id); if(!terminal.has(task.status))throw new ApiError(409,'任务尚未结束');
-    return this.create({title:task.title,instruction:task.instruction,executor:task.executor,model:task.model,workspace:task.workspace,parentId:id});
+    return this.create({title:task.title,instruction:task.instruction,executor:task.executor,model:task.model,workspace:task.workspace,parentId:id,projectId:task.projectId});
   }
   followup(id:string,instruction:string) {
     const task=this.get(id);
     // CLI first version uses a new queued task with explicit context; no misleading live steering.
-    return this.create({title:`跟进：${task.title}`.slice(0,160),instruction:`原任务摘要：${task.instruction.slice(0,6000)}\n已有结果摘要：${task.result.slice(0,6000) || '原任务尚未完成，请先检查当前项目状态'}\n补充要求：${instruction}`,executor:task.executor,model:task.model,workspace:task.workspace,parentId:id});
+    return this.create({title:`跟进：${task.title}`.slice(0,160),instruction:`原任务摘要：${task.instruction.slice(0,6000)}\n已有结果摘要：${task.result.slice(0,6000) || '原任务尚未完成，请先检查当前项目状态'}\n补充要求：${instruction}`,executor:task.executor,model:task.model,workspace:task.workspace,parentId:id,projectId:task.projectId});
   }
   async close(){ this.stopped=true; for(const {controller} of this.active.values())controller.abort(new Error('服务关闭')); await Promise.all([...this.active.values()].map(v=>v.done)); }
 }

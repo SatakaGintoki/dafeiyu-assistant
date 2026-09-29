@@ -1,4 +1,5 @@
 import type { Settings, Snapshot, Task, Transport, ExecutorInfo } from './types';
+import type { Project,TaskTemplate,Diagnostics,Preference } from '../../../shared/types';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -25,13 +26,24 @@ export function createApi(transport: Transport) {
     chat: (message: string) => call<{ messageId: string }>('POST', '/chat', { message }),
     cancelChat: () => call<{ cancelled: boolean }>('POST', '/chat/cancel'),
     task: (id: string) => call<Task>('GET', `/tasks/${id}`),
-    createTask: (input: { title: string; instruction: string; executor?: string; model?: string }) =>
+    createTask: (input: { title: string; instruction: string; executor?: string; model?: string; projectId?: string }) =>
       call<Task>('POST', '/tasks', input, { 'Idempotency-Key': `ui-${crypto.randomUUID()}` }),
     cancelTask: (id: string) => call<Task>('POST', `/tasks/${id}/cancel`),
     retryTask: (id: string) => call<Task>('POST', `/tasks/${id}/retry`),
     followup: (id: string, instruction: string) => call<Task>('POST', `/tasks/${id}/followup`, { instruction }),
     updateSettings: (patch: Partial<Settings> & { apiKey?: string }) => call<Settings>('PATCH', '/settings', patch),
     executors: () => call<ExecutorInfo[]>('GET', '/executors'),
+    projects: () => call<Project[]>('GET','/projects'),
+    addProject: (project:Omit<Project,'id'>) => call<Project>('POST','/projects',project),
+    activateProject: (id:string) => call<Settings>('POST',`/projects/${id}/activate`),
+    removeProject: (id:string) => call<void>('DELETE',`/projects/${id}`),
+    templates: () => call<TaskTemplate[]>('GET','/templates'),
+    addTemplate: (name:string,instruction:string) => call<TaskTemplate>('POST','/templates',{name,instruction}),
+    removeTemplate: (id:string) => call<void>('DELETE',`/templates/${id}`),
+    diagnostics: () => call<Diagnostics>('GET','/diagnostics'),
+    preferences: () => call<Preference[]>('GET','/preferences'),
+    removePreference: (key:string) => call<void>('POST','/preferences/remove',{key}),
+    savePreference: (key:string,value:string) => call<Preference>('POST','/preferences/save',{key,value}),
   };
 }
 export type Api = ReturnType<typeof createApi>;

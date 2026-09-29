@@ -21,6 +21,10 @@ export async function verifyPackage(output: string) {
     await delay(2500);
     assert.equal((await call('GET', `/api/v1/tasks/${created.body.id}`)).body.status, 'succeeded');
     assert.ok((await panel.webContents.executeJavaScript('document.body.innerText')).includes('安装版验证'));
+    assert.equal((await call('GET','/api/v1/diagnostics')).body.version,'0.2.0');
+    await panel.webContents.executeJavaScript("window.dayu.panel.open('settings')");
+    await delay(800);
+    assert.ok((await panel.webContents.executeJavaScript('document.body.innerText')).includes('我的项目'));
     for (const win of windows) {
       win.showInactive();
       await delay(400);

@@ -51,12 +51,12 @@ function savePrefs() {
     writeFileSync(prefsFile, JSON.stringify(prefs, null, 2));
   } catch { /* non-fatal */ }
 }
-function publicPrefs(): PetPrefs { return { size: prefs.size, walk: prefs.walk, topmost: prefs.topmost }; }
+function publicPrefs(): PetPrefs { return { size: prefs.size, walk: prefs.walk, topmost: prefs.topmost, focus:!!prefs.focus }; }
 function setPrefs(patch: Partial<PetPrefs>) {
   prefs = { ...prefs, ...patch };
   savePrefs();
-  pet?.setAlwaysOnTop(prefs.topmost, 'floating');
-  panel?.setAlwaysOnTop(prefs.topmost, 'floating');
+  pet?.setAlwaysOnTop(prefs.topmost&&!prefs.focus, 'floating');
+  panel?.setAlwaysOnTop(prefs.topmost&&!prefs.focus, 'floating');
   broadcast('prefs:changed', publicPrefs());
 }
 
@@ -110,7 +110,7 @@ function createPet() {
     fullscreenable: false, skipTaskbar: true, hasShadow: false, show: false, backgroundColor: '#00000000',
     title: '大肥鱼', webPreferences,
   });
-  pet.setAlwaysOnTop(prefs.topmost, 'floating');
+  pet.setAlwaysOnTop(prefs.topmost&&!prefs.focus, 'floating');
   pet.setIgnoreMouseEvents(true, { forward: true });
   secure(pet);
   load(pet, 'pet');
@@ -124,7 +124,7 @@ function createPanel() {
     fullscreenable: false, skipTaskbar: true, hasShadow: false, show: false, backgroundColor: '#00000000',
     title: '大肥鱼 · 管家面板', webPreferences,
   });
-  panel.setAlwaysOnTop(prefs.topmost, 'floating');
+  panel.setAlwaysOnTop(prefs.topmost&&!prefs.focus, 'floating');
   secure(panel);
   load(panel, 'panel');
   panel.on('blur', () => { /* stays open; user closes explicitly */ });
@@ -169,6 +169,7 @@ function showPetMenu() {
     { label: '设置', click: () => showPanel('settings') },
     { type: 'separator' },
     { label: '自由散步', type: 'checkbox', checked: prefs.walk, click: item => setPrefs({ walk: item.checked }) },
+    { label: '专注模式', type: 'checkbox', checked: !!prefs.focus, click: item => setPrefs({ focus: item.checked }) },
     { label: '大小', submenu: [size('s', '小'), size('m', '标准'), size('l', '大')] },
     { label: '保持置顶', type: 'checkbox', checked: prefs.topmost, click: item => setPrefs({ topmost: item.checked }) },
     { type: 'separator' },
@@ -255,6 +256,25 @@ ipcMain.handle('api:request', async (_event, input: ApiInput) => {
   }
 });
 ipcMain.handle('api:connection', () => sse.connection);
+ipcMain.handle('folder:choose',async()=>{
+  const result=await dialog.showOpenDialog({properties:['openDirectory'],title:'选择项目文件夹'});
+  return result.canceled?undefined:result.filePaths[0];
+});
+ipcMain.handle('task:files',async(_event,input:{id:string;action:string;index?:number})=>{
+  if(!input||!/^[a-f0-9-]{36}$/i.test(input.id)||!['reveal','recover'].includes(input.action))return {ok:false,error:'无效请求'};
+  try{
+    if(input.action==='recover'){
+      const choice=await dialog.showMessageBox({type:'question',buttons:['取消','恢复到新文件夹'],defaultId:0,cancelId:0,message:'将任务执行前保存的文件恢复到一个新的独立文件夹。',detail:'不会覆盖当前项目。依赖、构建目录、密钥和符号链接等未备份内容不在恢复范围内。'});
+      if(choice.response!==1)return {ok:false,error:'已取消恢复'};
+    }
+    const response=await fetch(`${backendUrl()}/api/v1/tasks/${input.id}/${input.action}`,{method:'POST',headers:{Authorization:`Bearer ${token()}`,'Content-Type':'application/json'},body:JSON.stringify(input.action==='reveal'?{index:input.index??-1}:{}),signal:AbortSignal.timeout(60000)});
+    const result=await response.json();
+    if(!response.ok)return {ok:false,error:result.error};
+    // Reveal in Explorer, never execute an arbitrary task-generated file.
+    shell.showItemInFolder(result.path);
+    return {ok:true,path:result.path};
+  }catch{return {ok:false,error:'文件操作失败，请检查后端和目录是否可用'};}
+});
 ipcMain.on('pet:interactive', (_e, value: boolean) => pet?.setIgnoreMouseEvents(!value, { forward: true }));
 ipcMain.on('pet:move', (_e, x: number, y: number) => {
   if (pet && Number.isFinite(x) && Number.isFinite(y)) pet.setBounds({ x: Math.round(x), y: Math.round(y), ...PET });
@@ -277,6 +297,7 @@ ipcMain.on('prefs:set', (_e, patch: Partial<PetPrefs>) => {
   if (patch?.size === 's' || patch?.size === 'm' || patch?.size === 'l') clean.size = patch.size;
   if (typeof patch?.walk === 'boolean') clean.walk = patch.walk;
   if (typeof patch?.topmost === 'boolean') clean.topmost = patch.topmost;
+  if (typeof patch?.focus === 'boolean') clean.focus = patch.focus;
   setPrefs(clean);
 });
 ipcMain.handle('backend:start', startBackend);

@@ -421,11 +421,11 @@ a:hover { text-decoration: underline; }
 .toggle span { width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); }
 .field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .field > span { font-size: 12px; font-weight: 600; color: var(--ink-2); }
-.field input, .field textarea {
+.field input, .field textarea, .field select {
   width: 100%; padding: 9px 11px; border-radius: 11px; border: 1px solid transparent; outline: 0;
   background: var(--field); transition: border-color 0.15s, background 0.15s, box-shadow 0.15s; resize: vertical;
 }
-.field input:focus, .field textarea:focus { border-color: rgba(77, 107, 254, 0.55); background: var(--card-solid); box-shadow: 0 0 0 4px rgba(77, 107, 254, 0.1); }
+.field input:focus, .field textarea:focus, .field select:focus { border-color: rgba(77, 107, 254, 0.55); background: var(--card-solid); box-shadow: 0 0 0 4px rgba(77, 107, 254, 0.1); }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* sheet */
@@ -435,6 +435,14 @@ a:hover { text-decoration: underline; }
 .sheet-grip { width: 38px; height: 4px; border-radius: 2px; margin: 0 auto; background: var(--line-2); }
 .sheet header { display: flex; justify-content: space-between; align-items: center; }
 .sheet h3 { margin: 0; font-size: 16px; }
+.sheet { max-height: 95%; overflow-y: auto; }
+.sheet > * { flex-shrink: 0; }
+.file-changes { max-height: 180px; overflow: auto; margin: 8px 0; }
+.file-change { display:block; text-align:left; width:100%; padding:6px; overflow-wrap:anywhere; color:var(--text); background:transparent; border:0; }
+.file-change span { opacity:.6; }
+.check-item, .saved-item { padding:10px 0; border-bottom:1px solid var(--line); overflow-wrap:anywhere; }
+.saved-item .btn { margin:4px 4px 0 0; }
+.exec-zcode { background:rgba(86,116,230,.14); color:#667eea; }
 .exec-pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .exec-pick button { padding: 9px 8px; border-radius: 12px; border: 1.5px solid var(--line-2); display: flex; flex-direction: column; gap: 2px; text-align: left; transition: border-color 0.15s, background 0.15s; }
 .exec-pick button.on { border-color: var(--blue); background: var(--blue-soft); }

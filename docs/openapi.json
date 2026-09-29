@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "大肥鱼管家后端",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "独立本地后端。通过 Bearer Token 认证；SSE 使用 fetch 流。CLI 运行成功表示执行器已结束，不等于独立验证业务目标。"
   },
   "servers": [
@@ -16,6 +16,608 @@
     }
   ],
   "paths": {
+    "/api/v1/projects": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Project"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "workspace": {
+                    "type": "string"
+                  },
+                  "executor": {
+                    "$ref": "#/components/schemas/Executor"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 4000
+                  }
+                },
+                "required": [
+                  "name",
+                  "workspace",
+                  "executor"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "记录已删除，项目文件保持不变"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{id}/activate": {
+      "post": {
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Settings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        }
+      }
+    },
+    "/api/v1/templates": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TaskTemplate"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "instruction": {
+                    "type": "string",
+                    "maxLength": 12000
+                  }
+                },
+                "required": [
+                  "name",
+                  "instruction"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskTemplate"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        }
+      }
+    },
+    "/api/v1/templates/{id}": {
+      "delete": {
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "记录已删除，项目文件保持不变"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        }
+      }
+    },
+    "/api/v1/preferences/remove": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "偏好已移除"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        }
+      }
+    },
+    "/api/v1/preferences/save": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "key": {
+                    "type": "string"
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "key",
+                  "value"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preference"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        }
+      }
+    },
+    "/api/v1/diagnostics": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "version": {
+                      "type": "string"
+                    },
+                    "checks": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "ok": {
+                            "type": "boolean"
+                          },
+                          "detail": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "name",
+                          "ok",
+                          "detail"
+                        ]
+                      }
+                    }
+                  },
+                  "required": [
+                    "version",
+                    "checks"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{id}/recover": {
+      "post": {
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {},
+                "required": []
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        },
+        "description": "把任务执行前的检查点恢复到新的独立目录，不覆盖原项目"
+      }
+    },
+    "/api/v1/tasks/{id}/reveal": {
+      "post": {
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "index": {
+                    "type": "integer",
+                    "minimum": -1,
+                    "maximum": 10000
+                  }
+                },
+                "required": [
+                  "index"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "path"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未认证"
+          },
+          "403": {
+            "description": "目录越界"
+          },
+          "404": {
+            "description": "未找到"
+          },
+          "409": {
+            "description": "忙碌、重复项目或不可恢复"
+          }
+        },
+        "description": "返回验证后的产物路径，index=-1 返回项目目录"
+      }
+    },
     "/health": {
       "get": {
         "summary": "公开的存活检查",
@@ -1559,6 +2161,116 @@
       }
     },
     "schemas": {
+      "Project": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "workspace": {
+            "type": "string"
+          },
+          "executor": {
+            "$ref": "#/components/schemas/Executor"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "workspace",
+          "executor",
+          "notes"
+        ]
+      },
+      "TaskTemplate": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "instruction": {
+            "type": "string",
+            "maxLength": 12000
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "instruction"
+        ]
+      },
+      "FileChange": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "added",
+              "modified",
+              "deleted"
+            ]
+          }
+        },
+        "required": [
+          "path",
+          "kind"
+        ]
+      },
+      "Checkpoint": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "ready",
+              "complete",
+              "partial"
+            ]
+          },
+          "files": {
+            "type": "integer"
+          },
+          "bytes": {
+            "type": "integer"
+          },
+          "skipped": {
+            "type": "integer"
+          },
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FileChange"
+            }
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "files",
+          "bytes",
+          "skipped",
+          "changes"
+        ]
+      },
       "Executor": {
         "type": "string",
         "enum": [
@@ -1619,6 +2331,10 @@
           "workspace": {
             "type": "string",
             "description": "默认使用设置的工作目录，显式目录必须在其内部"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
           },
           "parentId": {
             "type": "string",
@@ -1685,6 +2401,13 @@
               "type": "string"
             },
             "maxItems": 100
+          },
+          "checkpoint": {
+            "$ref": "#/components/schemas/Checkpoint"
+          },
+          "projectId": {
+            "type": "string",
+            "format": "uuid"
           },
           "parentId": {
             "type": "string",

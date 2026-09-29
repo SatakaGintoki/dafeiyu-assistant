@@ -144,10 +144,11 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
   // ---- greeting + idle chatter + sleep ----
   const greeted = useRef(false);
   useEffect(() => {
-    if (greeted.current || connection !== 'online' || !ready) return;
+    if (prefs.focus || greeted.current || connection !== 'online' || !ready) return;
     greeted.current = true;
-    window.setTimeout(() => { bubbles.say({ text: greeting(name), ttl: 5200, tone: 'happy' }); void hop(24); }, 700);
-  }, [connection, ready, name, bubbles, hop]);
+    const timer=window.setTimeout(() => { bubbles.say({ text: greeting(name), ttl: 5200, tone: 'happy' }); void hop(24); }, 700);
+    return ()=>window.clearTimeout(timer);
+  }, [connection, ready, name, bubbles, hop, prefs.focus]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -158,10 +159,10 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
   }, [base, hovered, panelVisible]);
 
   useEffect(() => {
-    if (mood !== 'idle' || panelVisible || !pageVisible) return;
+    if (prefs.focus || mood !== 'idle' || panelVisible || !pageVisible) return;
     const timer = window.setTimeout(() => bubbles.say({ text: line.idle(), ttl: 4000, priority: 0 }), rand(80_000, 160_000));
     return () => window.clearTimeout(timer);
-  }, [mood, panelVisible, pageVisible, bubbles]);
+  }, [mood, panelVisible, pageVisible, bubbles, prefs.focus]);
 
   // ---- backend signals ----
   const panelRef = useRef(panelVisible);
@@ -371,7 +372,7 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
 
   // ---- strolling ----
   const stopWalk = useRef<(() => void) | null>(null);
-  const canWalk = prefs.walk && !forcedMood && base === 'idle' && !transient && !dragging && !panelVisible && !hovered && !sleeping && pageVisible;
+  const canWalk = prefs.walk && !prefs.focus && !forcedMood && base === 'idle' && !transient && !dragging && !panelVisible && !hovered && !sleeping && pageVisible;
   useEffect(() => {
     if (!canWalk) return;
     let cancelled = false;
