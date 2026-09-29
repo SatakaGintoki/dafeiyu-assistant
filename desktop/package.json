@@ -1,0 +1,43 @@
+{
+  "name": "dayu-desktop-pet",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "大肥鱼管家 · 大肥鱼桌宠前端（Electron + React）",
+  "main": "dist-electron/main.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "vite",
+    "build": "tsc --noEmit && vite build && node scripts/build-electron.mjs",
+    "start": "npm run build && electron .",
+    "check": "tsc --noEmit && npm run test",
+    "test": "node ../node_modules/tsx/dist/cli.mjs --test tests/*.test.ts",
+    "test:desktop": "npm run build && node scripts/check-desktop.mjs",
+    "package:prepare": "node scripts/prepare-package.mjs",
+    "package:win": "npm run build && npm run package:prepare && node scripts/package-win.mjs"
+  },
+  "dependencies": {
+    "motion": "^13.4.4",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "typescript": "^5.7.0",
+    "vite": "^8.3.1"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "electron@44.4.5": true
+  },
+  "author": "Dayu"
+}

@@ -1,0 +1,25 @@
+{
+  "appId": "com.dayu.desktop.butler",
+  "productName": "大肥鱼管家",
+  "copyright": "Copyright © 2026 大肥鱼管家",
+  "directories": { "output": "release" },
+  "electronDist": "node_modules/electron/dist",
+  "asar": true,
+  "npmRebuild": false,
+  "files": ["dist/**/*", "dist-electron/*.cjs", "src/assets/front.png", "assets/CREDITS.md", "assets/LICENSE-dafeiyu-pet", "package.json", "!node_modules/**/*"],
+  "extraResources": [
+    { "from": "package-resources/backend", "to": "backend" },
+    { "from": "package-resources/backend/node_modules", "to": "backend/node_modules", "filter": ["**/*"] },
+    { "from": "package-resources/runtime", "to": "runtime" }
+  ],
+  "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "icon": "assets/app.ico", "signExecutable": false },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "createDesktopShortcut": "always",
+    "createStartMenuShortcut": true,
+    "shortcutName": "大肥鱼管家",
+    "deleteAppDataOnUninstall": false,
+    "artifactName": "Dafeiyu-Setup-${version}-${arch}.${ext}"
+  }
+}

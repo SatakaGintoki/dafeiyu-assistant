@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "ES2023", "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext", "moduleResolution": "Bundler",
+    "strict": true, "noEmit": true, "esModuleInterop": true,
+    "skipLibCheck": true, "resolveJsonModule": true, "allowImportingTsExtensions": true,
+    "types": ["node"]
+  },
+  "include": ["server", "shared", "tests", "scripts/*.ts"]
+}

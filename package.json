@@ -1,0 +1,31 @@
+{
+  "name": "dayu-desktop-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "大肥鱼 · DeepSeek 桌面管家",
+  "scripts": {
+    "dev": "tsx watch server/index.ts",
+    "build": "tsc --noEmit",
+    "start": "tsx server/index.ts",
+    "server": "tsx server/index.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "check": "npm run build && npm test",
+    "test:harness": "tsx scripts/check-harness.ts",
+    "test:live": "tsx scripts/check-executors.ts",
+    "docs": "tsx scripts/export-openapi.ts"
+  },
+  "dependencies": {
+    "@deepseek-ai/dsh-sdk-client": "0.1.7-rc.2",
+    "@deepseek-ai/dsh-tools": "0.1.7-rc.2",
+    "express": "^5.1.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": { "node": ">=24.0.0" }
+}

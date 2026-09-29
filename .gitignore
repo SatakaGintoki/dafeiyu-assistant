@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-electron/
+desktop/package-resources/
+desktop/release/
+.data/
+.env
+test-results/
+playwright-report/
+*.log
+work/
+projects/
