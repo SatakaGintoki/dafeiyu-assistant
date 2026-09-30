@@ -27,18 +27,24 @@ service.setInternalUrl(url);
 const harness=new HarnessRuntime(service.config,service.store,()=>url,service.token);
 const direct=new DirectRuntime(service.config,service.store,{execute:async()=>{throw new Error('No tools in dialogue evaluation');}} as any);
 const results:unknown[]=[];
+const latency=process.argv.includes('--latency');
+const cases=latency ? [
+  [harness,'只回复：收到'],[direct,'只回复：收到'],
+  [harness,'只回复：收到'],[direct,'只回复：收到'],
+  [harness,'只回复：收到'],[direct,'只回复：收到'],
+] as const : [
+  [harness,'你好啊'],[harness,'你这条吃白饭的大肥鱼，又在摸鱼？'],
+  [harness,'前后端分离是什么意思？只说重点。'],
+  [harness,'今天有点烦，做什么都不顺。'],
+  [direct,'我不懂 Git，先告诉我它有什么用，简单点。'],
+] as const;
 try {
-  for(const [runtime,input] of [
-    [harness,'你好啊'],
-    [harness,'你这条吃白饭的大肥鱼，又在摸鱼？'],
-    [harness,'前后端分离是什么意思？只说重点。'],
-    [harness,'今天有点烦，做什么都不顺。'],
-    [direct,'我不懂 Git，先告诉我它有什么用，简单点。'],
-  ] as const){
+  for(const [runtime,input] of cases){
     service.store.message('user',input);
+    const start=performance.now();
     const answer=await runtime.reply(input,AbortSignal.timeout(120000),()=>{});
     service.store.message('assistant',answer);
-    const result={runtime:runtime===harness?'harness':'direct',input,answer,characters:Array.from(answer).length};
+    const result={runtime:runtime===harness?'harness':'direct',input,answer,characters:Array.from(answer).length,elapsedMs:Math.round(performance.now()-start)};
     results.push(result);console.log(JSON.stringify(result));
   }
   writeFileSync(join(dir,'report.json'),JSON.stringify(results,null,2));

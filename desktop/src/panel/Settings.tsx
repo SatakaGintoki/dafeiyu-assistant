@@ -9,8 +9,8 @@ import { WorkspaceSettings } from './WorkspaceSettings';
 
 type Form = Omit<SettingsType, 'hasApiKey'> & { apiKey: string };
 const runtimes: { id: SettingsType['runtime']; label: string; hint: string }[] = [
-  { id: 'harness', label: 'DeepSeek 管家', hint: '能调用工具、派发任务' },
-  { id: 'deepseek', label: '纯对话', hint: '只聊天' },
+  { id: 'deepseek', label: '直连管家', hint: '直接连接模型，可调用工具、派发任务' },
+  { id: 'harness', label: 'Harness 管家', hint: '通过本地 Harness 调用模型和工具' },
   { id: 'demo', label: '演示', hint: '不需要 Key' },
 ];
 const executors: { id: Executor; label: string }[] = [{ id: 'codex', label: 'Codex' }, { id: 'claude', label: 'Claude Code' }, { id: 'zcode', label: 'ZCode' }, { id: 'demo', label: '演示' }];

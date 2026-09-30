@@ -4,7 +4,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { Config, ApiError } from './config';
 import { ButlerTools, toolDefinitions } from './tools';
 import type { Store } from './store';
-import { runtimeStatus } from './runtime-status';
+import { APP_VERSION } from '../shared/version';
 import { conversationStyle } from './conversation';
 
 export interface Runtime { reply(input:string,signal:AbortSignal,onProgress:(text:string)=>void):Promise<string>; close():Promise<void> }
@@ -48,7 +48,11 @@ dispatch_task 返回的是排队任务，绝不声称工作已完成，以工具
 ${conversationStyle}`;
 }
 function context(store:Store, config:Config) {
-  return {currentRuntime:runtimeStatus(config),preferences:store.list('preference'),tasks:store.tasks().slice(-8).map(({id,title,status,updatedAt})=>({id,title,status,updatedAt})),conversation:store.messages().filter(m=>!m.taskId && m.role!=='system').slice(-24).map(({role,content})=>({role,content:content.slice(0,6000)}))};
+  const {runtime,defaultExecutor,claudeFullAccess}=config.value;
+  // Executor discovery can spawn synchronous OS processes. Keep it on the
+  // explicit status tool path instead of delaying every conversational turn.
+  const currentRuntime={version:APP_VERSION,runtime,defaultExecutor,claudeFullAccess,note:'此处只有当前配置，不含执行器发现结果。需要检查程序可用性时调用 get_runtime_status。'};
+  return {currentRuntime,preferences:store.list('preference'),tasks:store.tasks().slice(-8).map(({id,title,status,updatedAt})=>({id,title,status,updatedAt})),conversation:store.messages().filter(m=>!m.taskId && m.role!=='system').slice(-24).map(({role,content})=>({role,content:content.slice(0,6000)}))};
 }
 
 export class DirectRuntime implements Runtime {

@@ -38,7 +38,7 @@ npm.cmd start
 
 环境变量优先于保存的凭据；使用 `.env` 后若要清除 Key，应同时清除 `.env` 中的值并重启。通过设置 API 传入空字符串只清除保存的 Key 和当前进程的 Key。
 
-默认管家模型为 `deepseek-flash`，可在设置中改为账户实际可用的模型 ID。默认运行底座为真实的 DeepSeek Harness SDK。`runtime=deepseek` 显式选择直接 API 工具循环；`runtime=demo` 仅提供明确标注的离线演示回复。
+默认管家模型为 `deepseek-flash`，可在设置中改为账户实际可用的模型 ID。默认 `runtime=deepseek` 直接连接 API，支持完整的管家工具循环和任务派发，减少本地运行时启动开销。`runtime=harness` 可选择 DeepSeek Harness SDK；`runtime=demo` 仅提供明确标注的离线演示回复。已有配置不会被默认值覆盖，可在设置中切换。
 
 `baseUrl=https://api.deepseek.com` 时：Harness 使用官方 `/anthropic` Messages 接口，直接 API 模式使用 `/chat/completions`。自定义地址在 Harness 模式必须是支持 Anthropic Messages 的根地址（自动追加 `/v1/messages`）；直接 API 模式必须是 Chat Completions 根地址。不要把两种协议混用。
 
