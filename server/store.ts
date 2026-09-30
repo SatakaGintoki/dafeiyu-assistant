@@ -52,5 +52,5 @@ export class Store {
 }
 
 export function defaults(workspace: string): Settings {
-  return { runtime: 'harness', model: 'deepseek-flash', baseUrl: 'https://api.deepseek.com', defaultExecutor: 'codex', workspace:join(workspace,'projects'), nickname: '', codexPath: '', claudePath: '', zcodePath: '', executorModel: '', taskTimeoutMinutes: 30, hasApiKey: false };
+  return { runtime: 'harness', model: 'deepseek-flash', baseUrl: 'https://api.deepseek.com', defaultExecutor: 'codex', workspace:join(workspace,'projects'), nickname: '', codexPath: '', claudePath: '', zcodePath: '', executorModel: '', claudeFullAccess: false, taskTimeoutMinutes: 30, hasApiKey: false };
 }

@@ -1,3 +1,4 @@
+import { APP_VERSION } from '../../shared/version';
 import { app, BrowserWindow } from 'electron';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -21,7 +22,7 @@ export async function verifyPackage(output: string) {
     await delay(2500);
     assert.equal((await call('GET', `/api/v1/tasks/${created.body.id}`)).body.status, 'succeeded');
     assert.ok((await panel.webContents.executeJavaScript('document.body.innerText')).includes('安装版验证'));
-    assert.equal((await call('GET','/api/v1/diagnostics')).body.version,'0.2.0');
+    assert.equal((await call('GET','/api/v1/diagnostics')).body.version,APP_VERSION);
     await panel.webContents.executeJavaScript("window.dayu.panel.open('settings')");
     await delay(800);
     assert.ok((await panel.webContents.executeJavaScript('document.body.innerText')).includes('我的项目'));

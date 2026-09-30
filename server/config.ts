@@ -12,6 +12,7 @@ export const settingsSchema = z.object({
   defaultExecutor: z.enum(['codex', 'claude', 'zcode', 'demo']).optional(),
   workspace: z.string().min(1).max(2000).optional(), nickname: z.string().trim().max(60).optional(),
   codexPath: z.string().max(2000).optional(), claudePath: z.string().max(2000).optional(), zcodePath: z.string().max(2000).optional(),
+  claudeFullAccess: z.boolean().optional(),
   executorModel: z.string().trim().max(120).optional(),
   taskTimeoutMinutes: z.number().int().min(1).max(240).optional(),
   apiKey: z.string().trim().max(1000).optional(),

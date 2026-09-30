@@ -1,3 +1,4 @@
+import { APP_VERSION } from '../shared/version';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdirSync,mkdtempSync,readFileSync,writeFileSync,unlinkSync,existsSync,symlinkSync } from 'node:fs';
@@ -52,7 +53,7 @@ test('workflow API persists projects/templates, diagnoses, checkpoints and recov
   const template=await api('/templates','POST',{name:'Template',instruction:'Do work'});assert.equal(template.status,201);assert.equal((await api('/templates')).body.length,1);
   assert.equal((await api(`/templates/${template.body.id}`,'DELETE')).status,204);
   service.store.put('preference','中文 key',{key:'中文 key',value:'中文'});await api('/preferences/remove','POST',{key:'中文 key'});assert.equal((await api('/preferences')).body.length,0);
-  const diagnostics=(await api('/diagnostics')).body;assert.equal(diagnostics.version,'0.2.0');assert.ok(!JSON.stringify(diagnostics).includes(service.token));
+  const diagnostics=(await api('/diagnostics')).body;assert.equal(diagnostics.version,APP_VERSION);assert.ok(!JSON.stringify(diagnostics).includes(service.token));
 });
 test('checkpoint size limit prevents executor launch',async t=>{
   const root=temp();const service=createApp({root,runner:{async run(){assert.fail('runner must not run');}}});t.after(()=>service.close());

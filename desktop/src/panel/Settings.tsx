@@ -90,13 +90,15 @@ export function Settings() {
           </label>
           <div className="row2">
             <label className="field"><span>模型</span><input value={form.model} onChange={e => set('model', e.target.value)} /></label>
-            <label className="field"><span>怎么称呼你</span><input value={form.nickname} maxLength={60} onChange={e => set('nickname', e.target.value)} placeholder="主人" /></label>
+            <label className="field"><span>怎么称呼你</span><input value={form.nickname} maxLength={60} onChange={e => set('nickname', e.target.value)} placeholder="你希望的称呼" /></label>
           </div>
           <label className="field"><span>接口地址</span><input value={form.baseUrl} onChange={e => set('baseUrl', e.target.value)} /></label>
         </section>
 
         <section className="group">
           <h4>干活的手</h4>
+<div className="pref"><span>Claude Code 完全访问</span><Toggle label="Claude Code 完全访问" on={!!form.claudeFullAccess} onChange={v=>set("claudeFullAccess",v)}/></div>
+<p className="hint">开启后允许执行命令并跳过工具确认，可访问当前 Windows 用户有权限的文件；不能解除系统或组织策略。默认关闭，对新任务生效。</p>
           <Segmented id="exec" value={form.defaultExecutor} options={executors} onChange={v => set('defaultExecutor', v)} />
           <div className="exec-status">
             {list.map(e => (

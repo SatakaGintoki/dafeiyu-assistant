@@ -1,5 +1,5 @@
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, extname, dirname, isAbsolute } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -39,6 +39,13 @@ export function resolveExecutor(executor: 'codex' | 'claude' | 'zcode', configur
   const candidates = [join(home, '.local/bin', executor + (process.platform === 'win32' ? '.exe' : ''))];
   if (process.platform === 'win32') {
     try { candidates.push(...execFileSync('where.exe', [executor], {encoding:'utf8',windowsHide:true,timeout:5000,stdio:['ignore','pipe','ignore']}).trim().split(/\r?\n/)); } catch {}
+    if (executor === 'codex') {
+      const bin = join(process.env.LOCALAPPDATA || join(home,'AppData/Local'),'OpenAI/Codex/bin');
+      try {
+        candidates.push(...readdirSync(bin).map(name=>join(bin,name,'codex.exe')).filter(existsSync)
+          .sort((a,b)=>statSync(b).mtimeMs-statSync(a).mtimeMs));
+      } catch {}
+    }
     if (executor === 'claude') candidates.push(join(home,'AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe'));
   } else {
     for (const folder of (process.env.PATH || '').split(':')) candidates.push(join(folder,executor));
@@ -69,6 +76,11 @@ export function killTree(child: ChildProcess): Promise<void> {
   });
 }
 
+export function claudePermissionArgs(fullAccess: boolean): string[] {
+  return fullAccess ? ['--permission-mode','bypassPermissions']
+    : ['--permission-mode','dontAsk','--allowedTools','Read,Edit,Write,Glob,Grep'];
+}
+
 export class CliRunner implements Runner {
   constructor(private config: Config) {}
   async run(task: Task, signal: AbortSignal, onUpdate: (update: ExecutionUpdate)=>void): Promise<RunResult> {
@@ -82,7 +94,7 @@ export class CliRunner implements Runner {
     if (!executable) throw new ApiError(503, `${task.executor} 不可用，请安装或设置程序路径`);
     const args = task.executor === 'codex'
       ? ['exec','--json','--skip-git-repo-check','-s','workspace-write','-c','approval_policy="never"',...(task.model ? ['-m',task.model] : []),'-']
-      : ['-p','--output-format','stream-json','--verbose','--permission-mode','dontAsk','--allowedTools','Read,Edit,Write,Glob,Grep',...(task.model ? ['--model',task.model] : [])];
+      : ['-p','--output-format','stream-json','--verbose',...claudePermissionArgs(!!this.config.value.claudeFullAccess),...(task.model ? ['--model',task.model] : [])];
     if (signal.aborted) throw signal.reason;
     return new Promise((resolve,reject)=> {
       const child = spawn(executable.command,[...executable.prefix,...args],{cwd:task.workspace,env:childEnv(),windowsHide:true,shell:false,detached:process.platform !== 'win32',stdio:['pipe','pipe','pipe']});

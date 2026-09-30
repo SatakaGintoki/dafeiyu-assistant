@@ -7,7 +7,7 @@ const body=(schema:unknown)=>({required:true,content:json(schema)});
 const errorResponses={'400':response('参数错误',ref('Error')),'401':response('认证失败',ref('Error')),'403':response('来源或目录不允许',ref('Error')),'404':response('资源不存在',ref('Error')),'409':response('忙碌或幂等冲突',ref('Error')),'503':response('尚未配置凭据或服务关闭',ref('Error'))};
 const id={name:'id',in:'path',required:true,schema:{type:'string'}};
 const string={type:'string'};
-const settingsProperties={runtime:{type:'string',enum:['harness','deepseek','demo']},model:string,baseUrl:{type:'string',format:'uri'},defaultExecutor:ref('Executor'),workspace:string,nickname:string,codexPath:string,claudePath:string,zcodePath:string,executorModel:string,taskTimeoutMinutes:{type:'integer',minimum:1,maximum:240}};
+const settingsProperties={claudeFullAccess:{type:'boolean',default:false},runtime:{type:'string',enum:['harness','deepseek','demo']},model:string,baseUrl:{type:'string',format:'uri'},defaultExecutor:ref('Executor'),workspace:string,nickname:string,codexPath:string,claudePath:string,zcodePath:string,executorModel:string,taskTimeoutMinutes:{type:'integer',minimum:1,maximum:240}};
 
 export const openApiDocument={
   openapi:'3.1.0',info:{title:'大肥鱼管家后端',version:APP_VERSION,description:'独立本地后端。通过 Bearer Token 认证；SSE 使用 fetch 流。CLI 运行成功表示执行器已结束，不等于独立验证业务目标。'},

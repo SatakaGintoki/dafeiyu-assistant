@@ -17,7 +17,7 @@ export interface Settings {
   runtime: 'harness' | 'deepseek' | 'demo'; model: string; baseUrl: string;
   defaultExecutor: Executor; workspace: string; nickname: string;
   codexPath: string; claudePath: string; zcodePath: string; executorModel: string;
-  taskTimeoutMinutes: number; hasApiKey: boolean;
+  claudeFullAccess?: boolean; taskTimeoutMinutes: number; hasApiKey: boolean;
 }
 export interface ExecutorInfo { id: Executor; name: string; available: boolean; detail: string }
 export interface Snapshot { messages: Message[]; tasks: Task[]; settings: Settings; executors: ExecutorInfo[]; busy: boolean; petState: string }
