@@ -47,7 +47,7 @@ test('real Harness runtime calls our plugin through HTTP and finishes a durable 
   assert.equal(modelCalls,2);assert.equal(sawToolResult,true);
   assert.ok(JSON.stringify(requests[0].system).includes('蓝色大肥鱼'), 'the actual model request must include the persona');
   assert.ok(JSON.stringify(requests[0].system).includes('默认只返回重点'), 'Harness must receive the same short chat style as direct mode');
-  assert.deepEqual(toolNames.sort(),['get_runtime_status','dispatch_task','list_tasks','get_task_status','cancel_task','remember_preference'].sort());
+  assert.deepEqual(toolNames.sort(),['get_runtime_status','dispatch_task','list_tasks','get_task_status','cancel_task','resume_task','remember_preference'].sort());
   assert.ok(JSON.stringify(requests[0].messages).includes('currentRuntime'));
   assert.equal(service.store.tasks().length,1);
   assert.ok(service.store.messages().some(m=>m.content==='任务已经排队，我会告诉你结果。'));

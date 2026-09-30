@@ -10,6 +10,7 @@ export const toolDefinitions = [
   {name:'list_tasks',description:'查看最近任务的真实状态。',parameters:{type:'object',properties:{},additionalProperties:false}},
   {name:'get_task_status',description:'查看指定任务的真实状态和结果。',parameters:{type:'object',properties:{taskId:{type:'string'}},required:['taskId'],additionalProperties:false}},
   {name:'cancel_task',description:'仅在用户要求停止任务时取消指定任务。',parameters:{type:'object',properties:{taskId:{type:'string'}},required:['taskId'],additionalProperties:false}},
+  {name:'resume_task',description:'用户要求继续或重试未完成任务时使用；复用原任务 ID，Claude 优先恢复会话。fromFiles 仅在用户要求放弃旧会话、从现有文件继续时为 true。',parameters:{type:'object',properties:{taskId:{type:'string'},fromFiles:{type:'boolean'}},required:['taskId'],additionalProperties:false}},
   {name:'remember_preference',description:'保存用户明确表达的长期偏好，不保存密码或凭据。',parameters:{type:'object',properties:{key:{type:'string'},value:{type:'string'}},required:['key','value'],additionalProperties:false}},
 ] as const;
 
@@ -22,6 +23,14 @@ export class ButlerTools {
       case 'list_tasks': z.object({}).strict().parse(args); return this.store.tasks().slice(-20).map(({logs,...task})=>task);
       case 'get_task_status': return this.tasks.get(z.object({taskId:z.string().uuid()}).strict().parse(args).taskId);
       case 'cancel_task': return this.tasks.cancel(z.object({taskId:z.string().uuid()}).strict().parse(args).taskId);
+      case 'resume_task': {
+        const input=z.object({taskId:z.string().uuid(),fromFiles:z.boolean().optional()}).strict().parse(args);
+        const previous=callId?this.store.get<{input:string}>('resume-request',callId):undefined;
+        if(previous){if(previous.input!==JSON.stringify(input))throw new ApiError(409,'工具调用 ID 已用于其他继续请求');return this.tasks.get(input.taskId);}
+        const task=this.tasks.resume(input.taskId,input.fromFiles);
+        if(callId)this.store.put('resume-request',callId,{input:JSON.stringify(input)});
+        return task;
+      }
       case 'remember_preference': {
         const data=z.object({key:z.string().trim().min(1).max(60),value:z.string().trim().min(1).max(500)}).strict().parse(args);
         if(/key|secret|token|password|密码|密钥|令牌/i.test(data.key) || /sk-[a-zA-Z0-9_-]{12,}/.test(data.value))throw new ApiError(400,'偏好记忆不接受凭据');

@@ -154,6 +154,7 @@ function TaskCard({ task, open, onToggle }: { task: Task; open: boolean; onToggl
                 {!isActive&&<button className="btn" disabled={pending} onClick={async()=>{setPending(true);try{const r=await host.taskFiles(task.id,'recover');toast(r.ok?'已恢复到新文件夹，原项目未覆盖':r.error||'恢复失败',r.ok?'success':'error');}finally{setPending(false);}}}>恢复任务前文件到新文件夹</button>}
               </section>}
               {task.error && <section><h5>错误</h5><p className="error-text">{task.error}</p></section>}
+              {!!task.attempts?.length&&<section><h5>之前的执行</h5>{task.attempts.map((attempt,index)=><details key={index}><summary>第 {index+1} 次 · {statusLabel[attempt.status]}</summary><p>{attempt.error||attempt.result||'未完成'}</p></details>)}</section>}
               <div className="task-actions">
                 {isActive && task.status !== 'cancelling' && (
                   <button className="btn danger" disabled={pending} onClick={() => act(() => store.api.cancelTask(task.id), '已请求取消')}>
@@ -161,10 +162,11 @@ function TaskCard({ task, open, onToggle }: { task: Task; open: boolean; onToggl
                   </button>
                 )}
                 {canRetry && (
-                  <button className="btn" disabled={pending} onClick={() => act(() => store.api.retryTask(task.id), '已重新排队')}>
-                    <IconRetry size={14} />重试
+                  <button className="btn" disabled={pending} onClick={() => act(() => store.api.resumeTask(task.id), '原任务已排队继续')}>
+                    <IconRetry size={14} />继续任务
                   </button>
                 )}
+                {canRetry&&task.executor==='claude'&&task.sessionId&&<button className="btn" disabled={pending} onClick={()=>act(()=>store.api.resumeTask(task.id,true),'将从已有文件继续')}><IconRetry size={14}/>从文件继续</button>}
               </div>
               {!isActive && (
                 <form className="followup" onSubmit={e => {

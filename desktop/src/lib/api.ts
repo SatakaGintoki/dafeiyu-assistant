@@ -30,6 +30,7 @@ export function createApi(transport: Transport) {
       call<Task>('POST', '/tasks', input, { 'Idempotency-Key': `ui-${crypto.randomUUID()}` }),
     cancelTask: (id: string) => call<Task>('POST', `/tasks/${id}/cancel`),
     retryTask: (id: string) => call<Task>('POST', `/tasks/${id}/retry`),
+    resumeTask: (id: string,fromFiles=false) => call<Task>('POST', `/tasks/${id}/resume`,{fromFiles}),
     followup: (id: string, instruction: string) => call<Task>('POST', `/tasks/${id}/followup`, { instruction }),
     updateSettings: (patch: Partial<Settings> & { apiKey?: string }) => call<Settings>('PATCH', '/settings', patch),
     executors: () => call<ExecutorInfo[]>('GET', '/executors'),

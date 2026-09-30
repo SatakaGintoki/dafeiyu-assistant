@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "大肥鱼管家后端",
-    "version": "0.2.7",
+    "version": "0.2.8",
     "description": "独立本地后端。通过 Bearer Token 认证；SSE 使用 fetch 流。CLI 运行成功表示执行器已结束，不等于独立验证业务目标。"
   },
   "servers": [
@@ -1456,6 +1456,111 @@
         }
       }
     },
+    "/api/v1/tasks/{id}/resume": {
+      "post": {
+        "summary": "继续未完成任务，保留原 ID、日志和文件；Claude 优先恢复会话",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "fromFiles": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "放弃模型会话恢复，只根据现有文件与任务记录继续"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "原任务已重新排队",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "认证失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "来源或目录不允许",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "资源不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "忙碌或幂等冲突",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "尚未配置凭据或服务关闭",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/tasks/{id}/followup": {
       "post": {
         "summary": "创建新的排队任务并携带原任务摘要；不是向运行中 CLI 实时注入",
@@ -2416,6 +2521,38 @@
           "parentId": {
             "type": "string",
             "format": "uuid"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "resumeMode": {
+            "enum": [
+              "session",
+              "workspace"
+            ]
+          },
+          "attempts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "at": {
+                  "type": "string"
+                },
+                "status": {
+                  "$ref": "#/components/schemas/TaskStatus"
+                },
+                "result": {
+                  "type": "string"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "sessionId": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },

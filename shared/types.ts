@@ -5,6 +5,9 @@ export interface Task {
   workspace: string; status: TaskStatus; createdAt: string; updatedAt: string;
   result: string; error: string; logs: string[]; parentId?: string;
   projectId?: string;
+  sessionId?: string;
+  resumeMode?: 'session' | 'workspace';
+  attempts?: { at:string; status:TaskStatus; result:string; error:string; sessionId?:string }[];
   checkpoint?: { status: 'ready' | 'complete' | 'partial'; files: number; bytes: number; skipped: number; changes: FileChange[]; note?: string };
 }
 export interface FileChange { path: string; kind: 'added' | 'modified' | 'deleted' }

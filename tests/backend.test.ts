@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -83,6 +83,60 @@ test('failures are persisted and retry creates an explicit new task',async t=>{
   assert.match(service.tasks.get(first.id).error,/deliberate/);
   const next=service.tasks.retry(first.id);assert.notEqual(next.id,first.id);assert.equal(next.parentId,first.id);
   await waitFor(()=>service.tasks.get(next.id).status==='succeeded');
+});
+
+test('resume keeps the task, session, files and original checkpoint across a failed run',async t=>{
+  let runs=0;
+  const workspace=temp();writeFileSync(join(workspace,'result.txt'),'before');
+  const runner:Runner={async run(task,_signal,update){
+    if(++runs===1){
+      update({sessionId:'saved-session-1'});update({log:'already wrote part one',result:'partial result'});
+      writeFileSync(join(workspace,'result.txt'),'part one');throw new Error('permission denied for: Bash');
+    }
+    assert.equal(task.sessionId,'saved-session-1');assert.equal(task.resumeMode,'session');
+    assert.equal(readFileSync(join(workspace,'result.txt'),'utf8'),'part one');
+    assert.equal(task.attempts?.[0].result,'partial result');
+    await delay(100);writeFileSync(join(workspace,'result.txt'),'finished');return {result:'done'};
+  }};
+  const {service,req}=await fixture(t,{runner});service.config.update({workspace});
+  const first=service.tasks.create({title:'Continue me',instruction:'finish both parts',executor:'claude'});
+  await waitFor(()=>service.tasks.get(first.id).status==='failed');
+  assert.equal(service.tasks.get(first.id).sessionId,'saved-session-1');
+  const response=await req(`/api/v1/tasks/${first.id}/resume`,'POST',{});
+  assert.equal(response.status,200);assert.equal((await response.json()).id,first.id);
+  assert.equal((await req(`/api/v1/tasks/${first.id}/resume`,'POST',{})).status,409);
+  await waitFor(()=>service.tasks.get(first.id).status==='succeeded');
+  assert.equal(service.store.tasks().length,1);assert.equal(runs,2);
+  assert.equal(service.tasks.get(first.id).attempts?.[0].error,'permission denied for: Bash');
+  const restored=service.tasks.recover(first.id);
+  assert.equal(readFileSync(join(restored.path,'result.txt'),'utf8'),'before');
+});
+
+test('legacy tasks resume from files and running tasks cannot be resumed',async t=>{
+  const {service}=await fixture(t,{runner:{async run(task:Task){assert.equal(task.resumeMode,'workspace');return {result:'continued'};}}});
+  const now=new Date().toISOString();
+  const old:Task={id:'legacy-task',title:'Old',instruction:'continue',executor:'demo',model:'',workspace:temp(),status:'interrupted',createdAt:now,updatedAt:now,result:'some work',error:'shutdown',logs:['old log']};
+  service.store.put('task',old.id,old);
+  assert.equal(service.tasks.resume(old.id).id,old.id);
+  assert.throws(()=>service.tasks.resume(old.id),/只能继续/);
+  await waitFor(()=>service.tasks.get(old.id).status==='succeeded');
+  assert.ok(service.tasks.get(old.id).logs.includes('old log'));
+});
+
+test('Claude resume passes the exact saved session and preserves the selected permission mode',async()=>{
+  const dir=temp(),script=join(dir,'fake-resume.mjs');
+  writeFileSync(script,`let input='';for await(const chunk of process.stdin)input+=chunk;console.log(JSON.stringify({type:'result',subtype:'success',result:JSON.stringify({args:process.argv.slice(2),input}),session_id:'saved-session'}));`);
+  const store=new Store(dir),config=new Config(store,root);config.update({claudePath:script,claudeFullAccess:false});
+  try{
+    const runner=new CliRunner(config);
+    const task={id:'resume-cli',instruction:'remaining work',executor:'claude',workspace:dir,model:'',resumeMode:'session',sessionId:'saved-session',logs:['part one done'],attempts:[{error:'denied',result:'part one'}]} as Task;
+    const result=JSON.parse((await runner.run(task,new AbortController().signal,()=>{})).result);
+    assert.equal(result.args[result.args.indexOf('--resume')+1],'saved-session');
+    assert.equal(result.args[result.args.indexOf('--permission-mode')+1],'dontAsk');
+    assert.match(result.input,/这是原任务的继续执行/);assert.match(result.input,/part one/);
+    const fallback=JSON.parse((await runner.run({...task,resumeMode:'workspace',sessionId:undefined},new AbortController().signal,()=>{})).result);
+    assert.ok(!fallback.args.includes('--resume'));
+  }finally{store.close();}
 });
 
 test('workspace escape is rejected and subfolder is allowed',async t=>{

@@ -62,16 +62,21 @@ export class TaskManager {
     task.status='running'; this.save(task);
     const timer=setTimeout(()=>controller.abort(new Error('任务超时，执行进程已终止')),this.config.value.taskTimeoutMinutes*60000);
     try {
-      if(task.executor!=='demo'){task.checkpoint=this.checkpoints.capture(task);this.save(task);}
+      if(task.executor!=='demo'&&!task.checkpoint){task.checkpoint=this.checkpoints.capture(task);this.save(task);}
       const result=await this.runner.run(task,controller.signal,update=>{
+        if(update.sessionId && /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/.test(update.sessionId))task.sessionId=update.sessionId;
+        if(update.result!==undefined)task.result=this.config.redact(update.result);
         if(update.log) {
           const log=this.config.redact(update.log).slice(0,4000);task.logs.push(log);task.logs=task.logs.slice(-100);
           task.status=this.get(task.id).status;task.updatedAt=new Date().toISOString();
           this.store.put('task',task.id,task);this.emit('task.log',{taskId:task.id,text:log,at:task.updatedAt});
         }
+        // Persist session identifiers immediately, including before a crash or denial.
+        if(update.sessionId || update.result!==undefined){task.status=this.get(task.id).status;this.save(task);}
       });
       if(controller.signal.aborted) throw controller.signal.reason;
       task.status='succeeded'; task.result=this.config.redact(result.result);
+      if(result.sessionId && /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/.test(result.sessionId))task.sessionId=result.sessionId;
     } catch(error) {
       task.status=this.stopped?'interrupted':this.get(task.id).status==='cancelling'?'cancelled':'failed';
       const reason=controller.signal.aborted ? controller.signal.reason : error;
@@ -103,6 +108,19 @@ export class TaskManager {
   retry(id:string) {
     const task=this.get(id); if(!terminal.has(task.status))throw new ApiError(409,'任务尚未结束');
     return this.create({title:task.title,instruction:task.instruction,executor:task.executor,model:task.model,workspace:task.workspace,parentId:id,projectId:task.projectId});
+  }
+  resume(id:string,fromFiles=false) {
+    if(this.stopped)throw new ApiError(503,'服务正在关闭');
+    const task=this.get(id);
+    if(!['failed','cancelled','interrupted'].includes(task.status)||this.active.has(id))throw new ApiError(409,'只能继续已停止且未完成的任务');
+    workspacePath(task.workspace);
+    task.attempts=[...(task.attempts||[]),{at:task.updatedAt,status:task.status,result:task.result,error:task.error,sessionId:task.sessionId}];
+    task.resumeMode=!fromFiles&&task.executor==='claude'&&task.sessionId?'session':'workspace';
+    if(task.resumeMode==='workspace')task.sessionId=undefined;
+    task.error='';task.status='queued';
+    task.logs.push(task.resumeMode==='session'?'继续原执行会话，保留已有产物。':'从现有文件、原指令和历史记录继续；没有恢复原模型会话。');
+    task.logs=task.logs.slice(-100);
+    this.save(task);queueMicrotask(()=>this.pump());return task;
   }
   followup(id:string,instruction:string) {
     const task=this.get(id);

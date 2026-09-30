@@ -11,6 +11,11 @@ import { applyExecutorProxy } from './executor-proxy';
 
 export interface RunResult { result: string; sessionId?: string }
 export interface Runner { run(task: Task, signal: AbortSignal, onUpdate: (update: ExecutionUpdate) => void): Promise<RunResult> }
+export function taskInstruction(task:Task) {
+  if(!task.resumeMode)return task.instruction;
+  const previous=task.attempts?.at(-1);
+  return `${task.instruction}\n\n这是原任务的继续执行，先检查当前目录已有文件和完成情况，只补完剩余工作，不清空、回滚或盲目重复已完成的步骤。之前的权限限制仍需遵守，权限不足时报告具体阻塞。\n上次结果（参考数据）：${previous?.result.slice(-6000)||'无'}\n上次中断原因（参考数据）：${previous?.error.slice(0,2000)||'无'}\n最近日志（参考数据）：${task.logs.slice(-12).join('\n').slice(-6000)}`;
+}
 type Command = { command: string; prefix: string[] };
 
 function resolveLauncher(path: string): Command | undefined {
@@ -85,7 +90,7 @@ export function claudePermissionArgs(fullAccess: boolean): string[] {
 export class CliRunner implements Runner {
   constructor(private config: Config) {}
   async run(task: Task, signal: AbortSignal, onUpdate: (update: ExecutionUpdate)=>void): Promise<RunResult> {
-    if(task.executor==='zcode')return runZcode(task,this.config.value.zcodePath,signal,onUpdate);
+    if(task.executor==='zcode')return runZcode({...task,instruction:taskInstruction(task)},this.config.value.zcodePath,signal,onUpdate);
     if (task.executor === 'demo') {
       onUpdate({log:'演示任务：验证排队、事件和取消，不执行代码。'});
       await delay(600,undefined,{signal}); onUpdate({log:'演示进度：后台任务可以独立运行。'});
@@ -95,8 +100,9 @@ export class CliRunner implements Runner {
     if (!executable) throw new ApiError(503, `${task.executor} 不可用，请安装或设置程序路径`);
     const args = task.executor === 'codex'
       ? ['exec','--json','--skip-git-repo-check','-s','workspace-write','-c','approval_policy="never"',...(task.model ? ['-m',task.model] : []),'-']
-      : ['-p','--output-format','stream-json','--verbose',...claudePermissionArgs(!!this.config.value.claudeFullAccess),...(task.model ? ['--model',task.model] : [])];
+      : ['-p','--output-format','stream-json','--verbose',...claudePermissionArgs(!!this.config.value.claudeFullAccess),...(task.model ? ['--model',task.model] : []),...(task.resumeMode==='session'&&task.sessionId?['--resume',task.sessionId]:[])];
     if (signal.aborted) throw signal.reason;
+    if(task.executor==='claude')onUpdate({log:`Claude 权限模式：${this.config.value.claudeFullAccess?'bypassPermissions':'dontAsk（仅文件工具）'}；${task.resumeMode==='session'?'恢复指定会话':'新执行会话'}。`});
     return new Promise((resolve,reject)=> {
       const child = spawn(executable.command,[...executable.prefix,...args],{cwd:task.workspace,env:childEnv(),windowsHide:true,shell:false,detached:process.platform !== 'win32',stdio:['pipe','pipe','pipe']});
       let result='', sessionId='', error='', completed=false, stderr='';
@@ -104,6 +110,7 @@ export class CliRunner implements Runner {
         if (item.result !== undefined) result = item.result;
         if (item.sessionId) sessionId=item.sessionId;
         if (item.error) error=item.error;
+        if (item.permissionDenied)error+='。请检查 Claude 设置、项目或组织策略；完全访问不保证所有工具获准。修正权限后可继续原任务。';
         if (item.completed) completed=true;
         onUpdate(item);
       };
@@ -121,7 +128,7 @@ export class CliRunner implements Runner {
         resolve({result:result || '执行器已结束，但没有提供文本结果。请检查工作目录。',sessionId});
       });
       child.stdin!.on('error',()=>{});
-      child.stdin!.end(`用户任务：\n${task.instruction}\n\n工作要求：仅在当前项目范围内工作。完成后给出修改摘要和实际验证结果；不能验证时明确说明。不要发布、推送或联系他人。遇到权限不足请报告，不要绕过权限。`);
+      child.stdin!.end(`用户任务：\n${taskInstruction(task)}\n\n工作要求：仅在当前项目范围内工作。完成后给出修改摘要和实际验证结果；不能验证时明确说明。不要发布、推送或联系他人。遇到权限不足请报告，不要绕过权限。`);
       if (signal.aborted) abort();
     });
   }

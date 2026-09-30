@@ -8,6 +8,7 @@ const definitions = [
   {name:'list_tasks',description:'List real task states.',parameters:{}},
   {name:'get_task_status',description:'Read a task state and result.',parameters:{taskId:{type:'string',required:true}}},
   {name:'cancel_task',description:'Cancel a task only when the user requests it.',parameters:{taskId:{type:'string',required:true}}},
+  {name:'resume_task',description:'Continue an unfinished task only when requested. Keep its task ID and prefer resuming its saved Claude session. Set fromFiles only if the user asks to abandon the session and continue from existing files.',parameters:{taskId:{type:'string',required:true},fromFiles:{type:'boolean'}}},
   {name:'remember_preference',description:'Save an explicitly stated user preference. Never store secrets.',parameters:{key:{type:'string',required:true},value:{type:'string',required:true}}},
 ];
 export function apply(ctx) {

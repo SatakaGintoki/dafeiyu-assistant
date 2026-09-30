@@ -80,6 +80,10 @@ export function createApp(options:AppOptions) {
   app.get('/api/v1/tasks/:id',(req,res)=>res.json(tasks.get(req.params.id as string)));
   app.post('/api/v1/tasks/:id/cancel',async(req,res)=>res.json(await tasks.cancel(req.params.id as string)));
   app.post('/api/v1/tasks/:id/retry',(req,res)=>res.status(201).json(tasks.retry(req.params.id as string)));
+  app.post('/api/v1/tasks/:id/resume',(req,res)=>{
+    const input=z.object({fromFiles:z.boolean().optional()}).strict().parse(req.body||{});
+    res.json(tasks.resume(req.params.id as string,input.fromFiles));
+  });
   app.post('/api/v1/tasks/:id/followup',(req,res)=>{
     const data=z.object({instruction:z.string().trim().min(1).max(8000)}).strict().parse(req.body);
     res.status(201).json(tasks.followup(req.params.id as string,data.instruction));
