@@ -125,7 +125,7 @@ export function Settings() {
 
         <section className="group">
           <h4>桌宠</h4>
-          <div className="pref"><span>专注模式（暂停闲聊、走动和置顶）</span><Toggle label="专注模式" on={!!prefs.focus} onChange={v=>host.prefs.set({focus:v})}/></div>
+          <div className="pref"><span>专注模式（暂停主动闲聊和走动）</span><Toggle label="专注模式" on={!!prefs.focus} onChange={v=>host.prefs.set({focus:v})}/></div>
           <div className="pref"><span>大小</span>
             <Segmented<PetSize> id="size" value={prefs.size} options={[{ id: 's', label: '小' }, { id: 'm', label: '标准' }, { id: 'l', label: '大' }]} onChange={v => host.prefs.set({ size: v })} />
           </div>

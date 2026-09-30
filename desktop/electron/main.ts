@@ -55,7 +55,7 @@ function publicPrefs(): PetPrefs { return { size: prefs.size, walk: prefs.walk, 
 function setPrefs(patch: Partial<PetPrefs>) {
   prefs = { ...prefs, ...patch };
   savePrefs();
-  pet?.setAlwaysOnTop(prefs.topmost&&!prefs.focus, 'floating');
+  pet?.setAlwaysOnTop(prefs.topmost, 'floating');
   panel?.setAlwaysOnTop(prefs.topmost&&!prefs.focus, 'floating');
   broadcast('prefs:changed', publicPrefs());
 }
@@ -110,7 +110,8 @@ function createPet() {
     fullscreenable: false, skipTaskbar: true, hasShadow: false, show: false, backgroundColor: '#00000000',
     title: '大肥鱼', webPreferences,
   });
-  pet.setAlwaysOnTop(prefs.topmost&&!prefs.focus, 'floating');
+  // Focus mode quiets the pet without overriding the explicit topmost setting.
+  pet.setAlwaysOnTop(prefs.topmost, 'floating');
   pet.setIgnoreMouseEvents(true, { forward: true });
   secure(pet);
   load(pet, 'pet');
@@ -186,14 +187,18 @@ function trayIcon() {
 function createTray() {
   tray = new Tray(trayIcon());
   tray.setToolTip('大肥鱼 · 桌面管家');
-  const togglePet = () => {
+  const showPet = () => {
     if (!pet) createPet();
-    else if (pet.isVisible()) { hidePanel(); pet.hide(); }
-    else pet.showInactive();
+    else {
+      pet.setAlwaysOnTop(prefs.topmost, 'floating');
+      pet.showInactive();
+      pet.moveTop();
+    }
   };
-  tray.on('click', togglePet);
+  tray.on('click', showPet);
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: '显示 / 隐藏大肥鱼', click: togglePet },
+    { label: '显示大肥鱼', click: showPet },
+    { label: '隐藏大肥鱼', click: () => { hidePanel(); pet?.hide(); } },
     { label: '打开对话', click: () => { pet?.showInactive(); showPanel('chat'); } },
     { label: '任务列表', click: () => { pet?.showInactive(); showPanel('tasks'); } },
     { type: 'separator' },

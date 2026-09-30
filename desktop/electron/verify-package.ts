@@ -12,6 +12,19 @@ export async function verifyPackage(output: string) {
     const windows = BrowserWindow.getAllWindows();
     assert.equal(windows.length, 2);
     const panel = windows.find(win => win.webContents.getURL().endsWith('#panel'))!;
+    const pet = windows.find(win => win.webContents.getURL().endsWith('#pet'))!;
+    await panel.webContents.executeJavaScript('window.dayu.prefs.set({topmost:true,focus:true})');
+    await delay(200);
+    panel.show();panel.focus();
+    await delay(200);
+    assert.equal(pet.isVisible(),true,'pet remains visible after losing focus');
+    assert.equal(pet.isAlwaysOnTop(),true,'focus mode must not disable pet topmost');
+    await panel.webContents.executeJavaScript('window.dayu.prefs.set({topmost:false})');
+    await delay(200);
+    assert.equal(pet.isAlwaysOnTop(),false,'explicit topmost toggle still works');
+    await panel.webContents.executeJavaScript('window.dayu.prefs.set({topmost:true,focus:false})');
+    await delay(200);
+    assert.equal(pet.isAlwaysOnTop(),true);
     const call = (method: string, path: string, body?: unknown) => panel.webContents.executeJavaScript(
       `window.dayu.api.request(${JSON.stringify(method)},${JSON.stringify(path)},${JSON.stringify(body) ?? 'undefined'})`);
     assert.equal((await call('GET', '/api/v1/state')).status, 200);
