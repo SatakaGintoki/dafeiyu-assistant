@@ -47,7 +47,7 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
   const [dragFacing, setDragFacing] = useState<'left' | 'right'>('left');
   const [blush, setBlush] = useState(false);
 
-  const bubbles = useBubbles();
+  const { current: bubble, controls: bubbles } = useBubbles();
   const effects = useRef<EffectsHandle>(null);
   const squashRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -228,7 +228,7 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
       return () => window.clearTimeout(timer);
     }
     if (connection === 'unauthorized') {
-      bubbles.say({ id: 'offline', text: '后端不认识我的令牌…请重启后端再试试', tone: 'error', ttl: 0, priority: 4 });
+      bubbles.say({ id: 'offline', text: '本地连接验证失败，请检查后端令牌', tone: 'error', ttl: 0, priority: 4 });
     }
   }, [connection, starting, bubbles, startBackend]);
 
@@ -502,8 +502,8 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
 
       <Effects ref={effects} />
 
-      <SpeechBubble bubble={bubbles.current} bottom={FLOOR + boxH + 8} onHover={bubbles.hover}
-        onClick={() => { if (!bubbles.current?.actions?.length) bubbles.dismiss(); }} />
+      <SpeechBubble bubble={bubble} bottom={FLOOR + boxH + 8} onHover={bubbles.hover}
+        onClick={() => { if (!bubble?.actions?.length) bubbles.dismiss(); }} />
 
       <AnimatePresence>
         {pill && !dragging && (

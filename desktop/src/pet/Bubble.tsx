@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 export interface BubbleAction { label: string; run: () => void; primary?: boolean }
 export interface BubbleData {
@@ -58,7 +58,8 @@ export function useBubbles() {
     if (on) window.clearTimeout(timer.current); else arm(2200);
   }, [arm]);
 
-  return { current, say, dismiss, hover };
+  const controls = useMemo(() => ({ say, dismiss, hover }), [say, dismiss, hover]);
+  return { current, controls };
 }
 
 export function SpeechBubble({ bubble, bottom, onHover, onClick }: {

@@ -1,0 +1,78 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { once } from 'node:events';
+import { createServer } from 'vite';
+import { createApp } from '../../server/app';
+
+// Uses an isolated demo backend. PLAYWRIGHT_MODULE_PATH may point to a bundled runtime.
+const root = resolve(import.meta.dirname, '../..');
+mkdirSync(join(root, 'work'), { recursive: true });
+const output = mkdtempSync(join(root, 'work/auth-preview-'));
+const service = createApp({ root, dataDir: join(output, 'data'), token: 'auth-preview-test-token-abcdefghijklmnopqrstuvwxyz' });
+service.config.update({ runtime: 'demo' });
+const backend = service.app.listen(0, '127.0.0.1');
+const sockets = new Set<import('node:net').Socket>();
+backend.on('connection', socket => {
+  sockets.add(socket);
+  socket.on('close', () => sockets.delete(socket));
+});
+const disconnect = () => { for (const socket of sockets) socket.destroy(); };
+await once(backend, 'listening');
+const address = backend.address() as { port: number };
+const url = `http://127.0.0.1:${address.port}`;
+service.setInternalUrl(url);
+const tokenFile = join(output, 'data/api-token');
+writeFileSync(tokenFile, 'wrong-token');
+writeFileSync(join(output, 'data/connection.json'), JSON.stringify({ url }));
+delete process.env.DAYU_API_TOKEN;
+delete process.env.DAYU_BACKEND_URL;
+delete process.env.DAYU_TOKEN_FILE;
+process.env.DAYU_DATA_DIR = join(output, 'data');
+let vite: Awaited<ReturnType<typeof createServer>> | undefined;
+let browser: any;
+try {
+  const modulePath = process.env.PLAYWRIGHT_MODULE_PATH;
+  const { chromium } = await import(modulePath ? pathToFileURL(modulePath).href : 'playwright');
+  vite = await createServer({ root: join(root, 'desktop'), configFile: join(root, 'desktop/vite.config.ts'), server: { port: 0, strictPort: false } });
+  await vite.listen();
+  browser = await chromium.launch({ channel: 'chrome', headless: true });
+  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  const errors: string[] = [];
+  page.on('pageerror', (error: Error) => errors.push(error.message));
+  page.on('console', (msg: any) => { if (/Maximum update depth|result of getSnapshot/.test(msg.text())) errors.push(msg.text()); });
+  await page.goto(vite.resolvedUrls!.local[0]);
+  await page.getByText('令牌无效', { exact: true }).waitFor();
+  await page.waitForTimeout(5500);
+  assert.deepEqual(errors, []);
+  console.log('Initial 401 stable');
+  writeFileSync(tokenFile, service.token);
+  await page.getByText('令牌无效', { exact: true }).waitFor({ state: 'hidden', timeout: 15000 });
+  await page.reload();
+  await page.waitForTimeout(1000);
+  writeFileSync(tokenFile, 'expired-token');
+  disconnect();
+  await page.getByText('令牌无效', { exact: true }).waitFor({ timeout: 15000 });
+  await page.waitForTimeout(5500);
+  await page.screenshot({ path: join(output, 'unauthorized.png') });
+  assert.deepEqual(errors, []);
+  writeFileSync(tokenFile, service.token);
+  await page.getByText('令牌无效', { exact: true }).waitFor({ state: 'hidden', timeout: 15000 });
+  disconnect();
+  await new Promise<void>(done => backend.close(() => done()));
+  await page.getByText('后端未连接', { exact: true }).waitFor({ timeout: 15000 });
+  await page.waitForTimeout(3500);
+  assert.deepEqual(errors, []);
+  backend.listen(address.port, '127.0.0.1');
+  await once(backend, 'listening');
+  await page.getByText('后端未连接', { exact: true }).waitFor({ state: 'hidden', timeout: 20000 });
+  assert.deepEqual(errors, []);
+  console.log(`PASS: initial 401, expired token, recovery and offline/reconnect. Screenshots: ${output}`);
+} finally {
+  await browser?.close();
+  await vite?.close();
+  await service.close();
+  backend.closeAllConnections();
+  await new Promise<void>(done => backend.close(() => done()));
+}

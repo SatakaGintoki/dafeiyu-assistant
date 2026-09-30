@@ -28,6 +28,14 @@ npm run dev:web  # http://127.0.0.1:5173
 
 浏览器模式渲染的是一个「假桌面」：壁纸、任务栏、宠物窗口和面板窗口，方便截图和调样式。可用参数：
 
+隔离预览时，在启动 Vite 的终端设置 `DAYU_DATA_DIR` 为隔离后端数据目录的绝对路径。代理会从该目录读取 `connection.json` 和 `api-token`，令牌仅在 Vite 服务端使用。令牌文件更新后，下次请求自动读取；后端端口变化则需重启 Vite。
+
+也可以显式设置 `DAYU_BACKEND_URL`，但必须同时指定 `DAYU_DATA_DIR`、`DAYU_TOKEN_FILE` 或 `DAYU_API_TOKEN`，避免把真实后端的令牌误配给测试后端。显式令牌优先于令牌文件。
+
+认证回归脚本：在项目根目录运行 `node node_modules/tsx/dist/cli.mjs desktop/scripts/check-auth-preview.ts`。需可用的 Playwright 和 Chrome；可通过 `PLAYWRIGHT_MODULE_PATH` 指定 Playwright 的绝对模块路径。测试使用隔离演示后端，覆盖 401、令牌轮换、断线与恢复，不调用模型、不启动真实桌宠。
+
+浏览器验证不等于 Electron 验收：透明窗口、鼠标穿透、IPC、内置后端及退出清理仍需桌面模式验证。
+
 | 参数 | 作用 |
 | --- | --- |
 | `?panel=chat\|tasks\|settings` | 直接展开管家面板 |
