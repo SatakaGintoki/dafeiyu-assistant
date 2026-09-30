@@ -133,9 +133,13 @@ test('SSE delivers persisted task events and supports Last-Event-ID',async t=>{
 test('DeepSeek API tool loop dispatches once and returns the real answer',async()=>{
   const store=new Store(temp()),config=new Config(store,root);config.update({apiKey:'test-only',runtime:'deepseek'});
   const manager=new TaskManager(store,config,{async run(){return {result:'done'};}},()=>{});
-  const tools=new ButlerTools(manager,store,config);store.message('user','创建演示任务');let calls=0;
+  const tools=new ButlerTools(manager,store,config);
+  store.message('assistant','旧任务的冗长执行日志，不应成为闲聊范本','old-task');
+  store.message('user','创建演示任务');let calls=0;
   const fetcher:typeof fetch=async(_url,init)=>{
     const body=JSON.parse(init!.body as string);calls++;
+    assert.match(body.messages[0].content,/默认只返回重点/);
+    assert.ok(!JSON.stringify(body.messages).includes('旧任务的冗长执行日志'));
     if(calls===1)return Response.json({choices:[{message:{role:'assistant',content:null,tool_calls:[{id:'call-1',type:'function',function:{name:'dispatch_task',arguments:JSON.stringify({title:'演示',instruction:'x',executor:'demo'})}}]}}]});
     assert.equal(body.messages.at(-1).role,'tool');assert.ok(JSON.parse(body.messages.at(-1).content).id);
     return Response.json({choices:[{message:{role:'assistant',content:'任务已排队。'}}]});

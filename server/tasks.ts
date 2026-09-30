@@ -7,6 +7,7 @@ import type { Runner } from './executors';
 import type { Task } from '../shared/types';
 import type { Project } from '../shared/types';
 import { Checkpoints } from './checkpoints';
+import { taskNotification } from './conversation';
 
 export const taskSchema = z.object({
   title:z.string().trim().min(1).max(160), instruction:z.string().trim().min(1).max(24000),
@@ -81,8 +82,7 @@ export class TaskManager {
         try{task.checkpoint=this.checkpoints.finish(task);}catch(error){task.checkpoint={...task.checkpoint,status:'partial',note:'执行前检查点已保留，但变更扫描失败：'+String(error)};}
       }
       this.save(task);
-      const label=task.status==='succeeded'?'执行结束':task.status==='cancelled'?'已取消':task.status==='interrupted'?'已中断':'执行遇到问题';
-      const message=this.store.message('assistant',`「${task.title}」${label}。\n${task.result || task.error}`,task.id);
+      const message=this.store.message('assistant',taskNotification(task),task.id);
       this.emit('message.created',message);
     }
   }
