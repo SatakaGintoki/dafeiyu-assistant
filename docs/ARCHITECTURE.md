@@ -22,7 +22,7 @@ Express API ─── SQLite Store（消息、任务、偏好、事件）
 
 ## Harness 集成
 
-使用官方 `@deepseek-ai/dsh-sdk-client@0.1.7-rc.2`，首次对话启动本地 SDK runtime，正常回复后保留进程和会话，后续轮次复用。使用 sdk-minimal 模板，在本服务数据目录生成覆盖配置：禁用 Windows/Linux shell 工具及其终端栈，安装自己的五个管家工具。实际测试会检查模型收到的工具名单，防止模板升级时无意引入 shell。
+使用官方 `@deepseek-ai/dsh-sdk-client@0.1.7-rc.2`，首次对话启动本地 SDK runtime，正常回复后保留进程和会话，后续轮次复用。使用 sdk-minimal 模板，在本服务数据目录生成覆盖配置：禁用 Windows/Linux shell 工具及其终端栈，安装自己的六个管家工具。实际测试会检查模型收到的工具名单，防止模板升级时无意引入 shell。
 
 运行数据隔离在 `.data/harness`，不复用或修改用户全局 DSH_HOME。子进程只继承必要的系统环境、显式 DeepSeek 凭据和插件回连信息。默认使用 DeepSeek 官方 Messages 接口；不存在对本服务的 Codex/Claude 凭据转发。
 

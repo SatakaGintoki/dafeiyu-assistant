@@ -7,6 +7,7 @@ import type { Executor, ExecutorInfo, Task } from '../shared/types';
 import { Config, ApiError } from './config';
 import { JsonLineDecoder, normalizeEvent, type ExecutionUpdate } from './executor-events';
 import { resolveZcode, runZcode } from './zcode';
+import { applyExecutorProxy } from './executor-proxy';
 
 export interface RunResult { result: string; sessionId?: string }
 export interface Runner { run(task: Task, signal: AbortSignal, onUpdate: (update: ExecutionUpdate) => void): Promise<RunResult> }
@@ -63,7 +64,7 @@ export function executorCatalog(config: Config): ExecutorInfo[] {
 function childEnv() {
   const env = {...process.env};
   for (const key of ['DEEPSEEK_API_KEY','DAYU_API_TOKEN','DAYU_INTERNAL_TOKEN','DAYU_INTERNAL_URL']) delete env[key];
-  return env;
+  return applyExecutorProxy(env);
 }
 
 export function killTree(child: ChildProcess): Promise<void> {

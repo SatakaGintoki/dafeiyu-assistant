@@ -45,7 +45,9 @@ test('real Harness runtime calls our plugin through HTTP and finishes a durable 
   const start=Date.now();while(!service.store.eventsAfter(0).some(e=>e.type==='chat.status' && (e.data as any).busy===false)){if(Date.now()-start>45000)throw new Error('Harness test timed out');await delay(100);}
   const errors=service.store.eventsAfter(0).filter(e=>e.type==='chat.error');assert.deepEqual(errors,[]);
   assert.equal(modelCalls,2);assert.equal(sawToolResult,true);
-  assert.deepEqual(toolNames.sort(),['dispatch_task','list_tasks','get_task_status','cancel_task','remember_preference'].sort());
+  assert.ok(JSON.stringify(requests[0].system).includes('蓝色大肥鱼'), 'the actual model request must include the persona');
+  assert.deepEqual(toolNames.sort(),['get_runtime_status','dispatch_task','list_tasks','get_task_status','cancel_task','remember_preference'].sort());
+  assert.ok(JSON.stringify(requests[0].messages).includes('currentRuntime'));
   assert.equal(service.store.tasks().length,1);
   assert.ok(service.store.messages().some(m=>m.content==='任务已经排队，我会告诉你结果。'));
   while(service.store.tasks()[0].status!=='succeeded'){if(Date.now()-start>50000)throw new Error('Task timeout');await delay(50);}

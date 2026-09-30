@@ -103,7 +103,7 @@ export function Settings() {
           <div className="exec-status">
             {list.map(e => (
               <div key={e.id} className={`exec-row ${e.available ? 'ok' : 'no'}`} title={e.detail}>
-                <i />{e.name}<small>{e.available ? '可用' : '未找到'}</small>
+                <i />{e.name}<small>{e.available ? '已找到' : '未找到'}</small>
               </div>
             ))}
           </div>

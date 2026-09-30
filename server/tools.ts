@@ -2,8 +2,10 @@ import { z } from 'zod';
 import { ApiError, Config } from './config';
 import { TaskManager } from './tasks';
 import type { Store } from './store';
+import { runtimeStatus } from './runtime-status';
 
 export const toolDefinitions = [
+  {name:'get_runtime_status',description:'查看当前程序版本、执行器发现结果和 Claude 完全访问设置。历史失败不代表当前不可用；发现程序不代表云端调用成功。',parameters:{type:'object',properties:{},additionalProperties:false}},
   {name:'dispatch_task',description:'用户明确要求执行工作时创建后台任务，立即返回任务 ID。纯讨论或设计咨询不创建任务。',parameters:{type:'object',properties:{title:{type:'string'},instruction:{type:'string'},executor:{type:'string',enum:['codex','claude','zcode','demo']},model:{type:'string'}},required:['title','instruction'],additionalProperties:false}},
   {name:'list_tasks',description:'查看最近任务的真实状态。',parameters:{type:'object',properties:{},additionalProperties:false}},
   {name:'get_task_status',description:'查看指定任务的真实状态和结果。',parameters:{type:'object',properties:{taskId:{type:'string'}},required:['taskId'],additionalProperties:false}},
@@ -15,6 +17,7 @@ export class ButlerTools {
   constructor(private tasks:TaskManager, private store:Store,private config:Config){}
   async execute(name:string,args:unknown,callId?:string):Promise<unknown> {
     switch(name){
+      case 'get_runtime_status': z.object({}).strict().parse(args); return runtimeStatus(this.config);
       case 'dispatch_task': return this.tasks.create(args,callId ? `tool:${callId}` : undefined);
       case 'list_tasks': z.object({}).strict().parse(args); return this.store.tasks().slice(-20).map(({logs,...task})=>task);
       case 'get_task_status': return this.tasks.get(z.object({taskId:z.string().uuid()}).strict().parse(args).taskId);

@@ -104,6 +104,9 @@ function normalizeCodex(event: Record<string, unknown>): ExecutionUpdate {
 
       if (itemType === 'command_execution') {
         const log = commandLog(item, event.type === 'item.completed');
+        if (event.type === 'item.completed' && /sandbox provisioning failed|helper_sandbox_lock_failed/.test(asString(item.aggregated_output) || '')) {
+          return { log, error: 'Codex 本地沙箱初始化失败，命令未执行。请在 Codex 中修复 Windows 沙箱设置后重试，或选择其他执行器。' };
+        }
         return log !== undefined ? { log } : {};
       }
       // A completed agent message is a candidate answer; the turn may still
