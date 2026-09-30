@@ -31,15 +31,29 @@ export function Chat({ onOpenTask, onSettings, active }: { onOpenTask: (id: stri
   const listRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const stick = useRef(true);
+  // The first scroll after the panel opens must not animate: the open animation
+  // changes the list height, so animating there plays the whole history sliding by.
+  // Opening lands on the newest message; only messages after that glide.
+  const landed = useRef(false);
   const taskById = useMemo(() => new Map(tasks.map(t => [t.id, t])), [tasks]);
   const visible = useMemo(() => messages.filter(m => m.content.trim() || m.taskId), [messages]);
 
   // Stay pinned to the bottom unless the user scrolled up to read.
   useLayoutEffect(() => {
     const el = listRef.current;
-    if (el && stick.current) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    if (!el || !stick.current) return;
+    const first = !landed.current && el.scrollHeight > el.clientHeight;
+    el.scrollTo({ top: el.scrollHeight, behavior: first ? 'instant' : 'smooth' });
+    if (first) landed.current = true;
   }, [visible.length, busy, progress]);
-  useEffect(() => { if (active) { inputRef.current?.focus(); const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; } }, [active]);
+  useEffect(() => {
+    if (!active) return;
+    landed.current = false;
+    stick.current = true;
+    inputRef.current?.focus();
+    const el = listRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'instant' });
+  }, [active]);
 
   useLayoutEffect(() => {
     const el = inputRef.current;

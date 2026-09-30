@@ -113,8 +113,8 @@ export function Settings() {
             <label className="field"><span>Codex 路径</span><input value={form.codexPath} onChange={e => set('codexPath', e.target.value)} placeholder="自动查找" /></label>
             <label className="field"><span>Claude 路径</span><input value={form.claudePath} onChange={e => set('claudePath', e.target.value)} placeholder="自动查找" /></label>
             <label className="field"><span>ZCode 路径</span><input value={form.zcodePath} onChange={e => set('zcodePath', e.target.value)} placeholder="自动查找，或填写 ZCode.exe / zcode.cjs 路径" /></label>
-            <p className="field-hint">ZCode 使用自身配置的模型，任务模型留空。允许文件编辑，禁用 Bash；需要交互批准的操作会失败或超时。</p>
           </div>
+          <p className="hint">ZCode 使用自身配置的模型，任务模型留空。允许文件编辑，禁用 Bash；需要交互批准的操作会失败或超时。</p>
           <div className="row2">
             <label className="field"><span>执行模型</span><input value={form.executorModel} onChange={e => set('executorModel', e.target.value)} placeholder="默认" /></label>
             <label className="field"><span>任务超时（分钟）</span>
