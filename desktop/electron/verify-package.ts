@@ -24,7 +24,10 @@ export async function verifyPackage(output: string) {
     assert.ok((await panel.webContents.executeJavaScript('document.body.innerText')).includes('安装版验证'));
     assert.equal((await call('GET','/api/v1/diagnostics')).body.version,APP_VERSION);
     await panel.webContents.executeJavaScript("window.dayu.panel.open('settings')");
-    await delay(800);
+    for (let attempt = 0; attempt < 40; attempt++) {
+      if ((await panel.webContents.executeJavaScript('document.body.innerText')).includes('我的项目')) break;
+      await delay(250);
+    }
     assert.ok((await panel.webContents.executeJavaScript('document.body.innerText')).includes('我的项目'));
     for (const win of windows) {
       win.showInactive();
@@ -35,6 +38,11 @@ export async function verifyPackage(output: string) {
     }
     writeFileSync(join(output, 'result.json'), JSON.stringify({ ok: true, packaged: app.isPackaged, version: app.getVersion() }));
   } catch (error) {
+    const panel = BrowserWindow.getAllWindows().find(win => win.webContents.getURL().endsWith('#panel'));
+    if (panel) {
+      writeFileSync(join(output, 'failure.txt'), await panel.webContents.executeJavaScript('document.body.innerText'));
+      writeFileSync(join(output, 'failure.png'), (await panel.webContents.capturePage()).toPNG());
+    }
     writeFileSync(join(output, 'result.json'), JSON.stringify({ ok: false, error: String(error) }));
   } finally { app.quit(); }
 }
