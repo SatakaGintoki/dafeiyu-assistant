@@ -1,6 +1,6 @@
 # 版本管理与回退
 
-仓库为本机 Git 仓库，不自动推送远端。`v0.1.0` 保留接入 Git 前的代码基线；`release/v0.2.0` 是历史分支名称，不代表当前版本。当前发行版本为 `v0.2.9`，包含事务本和持久提醒。源码与标签已推送至 GitHub。
+仓库使用 Git 管理，源码和发行标签按发布流程推送至 GitHub。`v0.1.0` 保留接入 Git 前的代码基线；`release/v0.2.0` 是历史分支名称，不代表当前版本。当前发行版本为 `v0.2.11`，包含流式回复、细分执行状态、事务本和持久提醒。源码与标签已推送至 GitHub。
 
 尚无公开稳定版分发。本机安装目录部署成功不等于 NSIS 安装包构建成功；近期 NSIS 构建曾失败，不应上传中间 EXE。公开前按 `PUBLIC-PREVIEW.md` 逐项验收。
 
@@ -24,3 +24,12 @@
 - 提供 Dafeiyu-0.2.9-windows-x64.zip、SHA256SUMS.txt、release-0.2.9.json 和 README-WINDOWS.txt。
 - 本地发布包整理到桌面“大肥鱼管家-发布包/0.2.9”，程序按版本放在 `%LOCALAPPDATA%/Programs/Dayu/versions/0.2.9`，桌面快捷方式指向程序；旧版可回退。
 - ZIP 是未签名的完整程序目录，非 NSIS 安装器。事务本与编码任务保持独立。关闭应用或电脑关机期间不能实时提醒，重新启动后补查。
+
+## v0.2.11 Windows 预览版
+
+- Release：https://github.com/SatakaGintoki/zhuochong/releases/tag/v0.2.11
+- 发布源码：b7ef7d784cde0aec243a0ea150151e68ceeaaba0。
+- Windows 构建、目录启动验证和发行包校验：https://github.com/SatakaGintoki/zhuochong/actions/runs/36902798764（成功）。
+- Electron 冒烟最初一次因设置页异步加载与固定 900ms 等待产生竞态失败；改为有界条件等待，未改变应用实现，修正提交 978ae77。重新验证：https://github.com/SatakaGintoki/zhuochong/actions/runs/36904245997（成功）。
+- ZIP SHA256：8f391eb5ddfd234e8d0f3c1c77c9a087425cc54c5bbfeb93db6228526c081b9f。
+- 包含 93 项后端和 17 项前端测试，以及隔离浏览器流式流程验收。直连支持文字增量；当前 Harness SDK 展示阶段并在结束后显示全文。
