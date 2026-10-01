@@ -1,0 +1,104 @@
+name: Build Windows preview
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag (for example v0.2.8)
+        required: true
+        type: string
+permissions:
+  contents: write
+concurrency:
+  group: preview-${{ inputs.tag }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - name: Validate tag
+        shell: pwsh
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          $version=(Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$' -or $env:RELEASE_TAG -ne "v$version") { throw 'Version tag mismatch' }
+      - run: npm ci
+      - run: npm --prefix desktop ci
+      - run: npm run check
+      - run: npm --prefix desktop run check
+      - run: npm --prefix desktop run build
+      - run: npm --prefix desktop run package:prepare
+      - name: Package application directory
+        working-directory: desktop
+        run: node node_modules/electron-builder/cli.js --config electron-builder.json --win --dir
+      - name: Verify packaged application and create archive
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $version=(Get-Content package.json -Raw | ConvertFrom-Json).version
+          $app=(Resolve-Path desktop/release/win-unpacked).Path
+          $verification=Join-Path $env:RUNNER_TEMP 'dayu-verification'
+          $p=Start-Process -FilePath (Join-Path $app '大肥鱼管家.exe') -WorkingDirectory $app -ArgumentList "--dayu-verify=$verification" -WindowStyle Hidden -PassThru
+          if (-not $p.WaitForExit(60000)) { Stop-Process -Id $p.Id; throw 'Packaged app verification timed out' }
+          $report=Get-ChildItem $verification -Recurse -Filter result.json | Select-Object -First 1
+          if (-not $report) { throw 'Missing packaged app verification report' }
+          $result=Get-Content $report.FullName -Raw | ConvertFrom-Json
+          if (-not $result.ok -or $result.version -ne $version) { throw 'Packaged verification failed' }
+          $out=New-Item -ItemType Directory -Path public-release
+          $archive=Join-Path $out.FullName "Dafeiyu-$version-windows-x64.zip"
+          @'
+          大肥鱼管家 Windows x64 预览版
+          完整解压 ZIP 后运行“大肥鱼管家.exe”，不要只复制 EXE。
+          自带后端和 Node.js。可先选演示模式；真实聊天需要个人 DeepSeek API Key，真实任务需要已安装并登录的执行器。
+          数据保存在 %APPDATA%/dayu-desktop-pet/。升级前等任务结束并从托盘退出旧版。
+          未签名，不是安装器。遇到系统拦截请检查来源与系统提示，不要关闭安全保护。
+          凭据暂存本地文件；不要上传数据目录。项目整体许可证尚待作者选择，第三方许可随包保留。
+          https://github.com/SatakaGintoki/zhuochong
+          '@ | Set-Content (Join-Path $app 'README-WINDOWS.txt') -Encoding utf8
+          Copy-Item (Join-Path $app 'README-WINDOWS.txt') $out.FullName
+          & 7z a -tzip -mx=1 $archive "$app/*"
+          if ($LASTEXITCODE -ne 0) { throw 'Archive creation failed' }
+          & 7z t $archive
+          if ($LASTEXITCODE -ne 0) { throw 'Archive validation failed' }
+          $hash=(Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $(Split-Path $archive -Leaf)" | Set-Content (Join-Path $out.FullName 'SHA256SUMS.txt') -Encoding utf8
+          $commit=git rev-parse HEAD
+          @{version=$version;commit=$commit;file=(Split-Path $archive -Leaf);sha256=$hash;signed=$false;packagedApplicationVerified=$true;builtBy='GitHub Actions Windows';runId=$env:GITHUB_RUN_ID} | ConvertTo-Json | Set-Content (Join-Path $out.FullName "release-$version.json") -Encoding utf8
+      - name: Upload and publish prerelease
+        uses: actions/github-script@v7
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const crypto = require('crypto');
+            const tag = process.env.RELEASE_TAG;
+            const version = tag.slice(1);
+            const body = `Windows x64 早期预览版。下载 Dafeiyu-${version}-windows-x64.zip，完整解压后运行“大肥鱼管家.exe”。自带后端和 Node.js。\n\n包含短对话、任务派发、中断续做、Claude 会话恢复、桌宠置顶和托盘召回。可先用演示模式；真实使用需个人模型凭据及已登录的执行器。\n\n按版本标签在 GitHub Windows 环境构建，自动测试、安装目录启动验证与 ZIP 校验通过。校验值见 SHA256SUMS.txt，构建信息见 release-${version}.json。\n\n**限制：未签名的程序压缩包，不是安装器或稳定版。** 不要关闭系统保护。凭据暂存本地文件，数据位于 %APPDATA%/dayu-desktop-pet/；升级前结束任务并退出旧版。权限拒绝需处理实际 CLI/项目策略，任务成功不等于独立业务验收。项目整体许可证尚未选定，第三方许可随包保留。`;
+            const existing = (await github.rest.repos.listReleases({...context.repo, per_page:100})).data.find(r=>r.tag_name===tag);
+            if(existing && !existing.draft) throw new Error('Release already public; refusing to replace assets');
+            const release = existing || (await github.rest.repos.createRelease({...context.repo, tag_name:tag, name:`大肥鱼管家 ${tag} · Windows 预览版`, body, draft:true, prerelease:true})).data;
+            const files = fs.readdirSync('public-release');
+            const assets = (await github.rest.repos.listReleaseAssets({...context.repo, release_id:release.id})).data;
+            for(const file of files) {
+              const data = fs.readFileSync(path.join('public-release',file));
+              const digest = 'sha256:'+crypto.createHash('sha256').update(data).digest('hex');
+              let asset = assets.find(a=>a.name===file);
+              if(!asset) asset=(await github.rest.repos.uploadReleaseAsset({...context.repo,release_id:release.id,name:file,data,headers:{'content-type':'application/octet-stream','content-length':data.length}})).data;
+              if(asset.size!==data.length || asset.digest!==digest) throw new Error('Asset verification failed: '+file);
+              core.info('Verified '+file);
+            }
+            await github.rest.repos.updateRelease({...context.repo,release_id:release.id,body,draft:false,prerelease:true});
+            core.info(release.html_url);
