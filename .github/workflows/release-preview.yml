@@ -35,13 +35,16 @@ jobs:
           if ($env:RELEASE_TAG -notmatch '^v\d+\.\d+\.\d+$' -or $env:RELEASE_TAG -ne "v$version") { throw 'Version tag mismatch' }
       - run: npm ci
       - run: npm --prefix desktop ci
+      - name: Install Electron runtime
+        working-directory: desktop
+        run: node node_modules/electron/install.js
       - run: npm run check
       - run: npm --prefix desktop run check
       - run: npm --prefix desktop run build
       - run: npm --prefix desktop run package:prepare
       - name: Package application directory
         working-directory: desktop
-        run: node node_modules/electron-builder/cli.js --config electron-builder.json --win --dir
+        run: node node_modules/electron-builder/cli.js --config electron-builder.json --win --dir --publish never
       - name: Verify packaged application and create archive
         shell: pwsh
         run: |
