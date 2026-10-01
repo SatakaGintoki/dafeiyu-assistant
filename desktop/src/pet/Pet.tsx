@@ -8,6 +8,7 @@ import { SpeechBubble, useBubbles } from './Bubble';
 import { Effects, type EffectsHandle, type ParticleKind } from './Effects';
 import { excerpt, greeting, line } from './lines';
 import { hitSprite, loadMasks, SPRITES, type View } from './sprites';
+import { useExpression } from './useExpression';
 
 export const PET_WINDOW = { width: 360, height: 460 };
 const SCALE = { s: 0.56, m: 0.68, l: 0.8 } as const;
@@ -46,6 +47,7 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
   const [glance, setGlance] = useState<'left' | 'right' | null>(null);
   const [dragFacing, setDragFacing] = useState<'left' | 'right'>('left');
   const [blush, setBlush] = useState(false);
+  const [nod, setNod] = useState(0);
 
   const { current: bubble, controls: bubbles } = useBubbles();
   const effects = useRef<EffectsHandle>(null);
@@ -64,6 +66,8 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
     : mood === 'dragging' || mood === 'walking' || glance ? 'side' : 'front';
   const facing = mood === 'dragging' ? dragFacing : mood === 'walking' ? walking! : glance ?? 'left';
   const flip = view === 'side' && facing === 'right';
+  const expression = useExpression(mood, view === 'front', pageVisible, nod);
+  const spriteId = expression ?? view;
 
   // ---- geometry ----
   const scale = SCALE[prefs.size];
@@ -136,7 +140,7 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
   // ---- panel visibility ----
   useEffect(() => host.panel.onVisibility(visible => {
     setPanelVisible(visible);
-    if (visible) { wake(); setGlance('left'); window.setTimeout(() => setGlance(null), 1400); }
+    if (visible) { wake(); setGlance(null); setNod(n=>n+1); }
   }), [host, wake]);
 
   const openPanel = useCallback((tab?: PanelTab) => { wake(); bubbles.dismiss(); host.panel.open(tab); }, [host, bubbles, wake]);
@@ -191,6 +195,7 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
         return;
       }
       case 'assistant.message':
+        setNod(n=>n+1);
         if (panelRef.current) { squash(0.5); return; }
         bubbles.say({
           text: excerpt(signal.message.content), ttl: 12000, priority: 2,
@@ -251,8 +256,8 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
   }, [flip]);
   const overSprite = useCallback((clientX: number, clientY: number) => {
     const uv = spriteUV(clientX, clientY);
-    return !!uv && hitSprite(view, uv.u, uv.v);
-  }, [spriteUV, view]);
+    return !!uv && hitSprite(spriteId, uv.u, uv.v);
+  }, [spriteUV, spriteId]);
 
   const hoverTimer = useRef<number | undefined>(undefined);
   const setHover = useCallback((on: boolean) => {
@@ -437,7 +442,7 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
     : null;
 
   const showDock = (hovered || dockHover) && !dragging && !walking;
-  const sprite = SPRITES[view];
+  const sprite = SPRITES[spriteId];
 
   return (
     <div className={`pet-root ${pageVisible ? '' : 'paused'}`} style={{ width: PET_WINDOW.width, height: PET_WINDOW.height }}
@@ -461,7 +466,7 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
                 onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerUp}
                 onDoubleClick={e => { if (overSprite(e.clientX, e.clientY)) openPanel('chat'); }}>
                 <AnimatePresence initial={false} mode="popLayout">
-                  <motion.img key={view} src={sprite.src} className="sprite" draggable={false} alt="大肥鱼"
+                  <motion.img key={view} src={sprite.src} data-sprite={spriteId} className="sprite" draggable={false} alt="大肥鱼"
                     initial={{ opacity: 0, scaleX: 0.55 }} animate={{ opacity: 1, scaleX: 1 }}
                     exit={{ opacity: 0, scaleX: 0.55, transition: { duration: 0.1 } }}
                     transition={{ duration: 0.2, ease: [0.2, 0.8, 0.3, 1] }} />
