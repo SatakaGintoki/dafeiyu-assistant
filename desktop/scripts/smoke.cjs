@@ -19,7 +19,7 @@ app.on('web-contents-created', (_event, contents) => {
   });
 });
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
-const timeout = setTimeout(() => { console.error('Desktop smoke test timed out'); app.exit(1); }, 30000);
+const timeout = setTimeout(() => { console.error('Desktop smoke test timed out'); app.exit(1); }, 60000);
 require('../dist-electron/main.cjs');
 app.whenReady().then(async () => {
   try {
@@ -70,6 +70,27 @@ app.whenReady().then(async () => {
       assert.ok(layout.top>=0&&layout.bottom<=layout.height+1,'New task sheet must remain inside viewport');
       writeFileSync(join(output,'new-task.png'),(await panel.webContents.capturePage()).toPNG());
       console.log('Projects, diagnostics, templates and scrollable task form passed.');
+      // Agenda over IPC: query strings pass the path filter, the main process alone delivers reminders.
+      await panel.webContents.executeJavaScript("window.dayu.panel.open('agenda')"); await pause(400);
+      const query = new URLSearchParams({ from: '2026-10-01T00:00:00+08:00', to: '2026-10-08T00:00:00+08:00' });
+      const calendar = await call('GET', `/api/v1/agenda/calendar?${query}`);
+      assert.equal(calendar.status, 200, JSON.stringify(calendar.body));
+      const reminder = await call('POST', '/api/v1/agenda/items', { kind: 'todo', title: '桌面提醒测试', reminderAt: new Date(Date.now() - 60000).toISOString() });
+      assert.equal(reminder.status, 201);
+      let card = false, status;
+      for (let i = 0; i < 100 && !card; i++) {
+        await pause(200);
+        card = (await panel.webContents.executeJavaScript('document.body.innerText')).includes('桌面提醒测试') && !!(await panel.webContents.executeJavaScript("document.querySelector('.ag-reminder')"));
+      }
+      assert.ok(card, 'Reminder card did not reach the agenda inbox (backend tick is every 15s)');
+      for (let i = 0; i < 20; i++) { status = await panel.webContents.executeJavaScript('window.dayu.reminders.status()'); if (status.shown || status.error || !status.supported) break; await pause(200); }
+      console.log(`Notifier status: ${JSON.stringify(status)}`);
+      assert.ok(status.checkedAt, 'Main-process notifier never read the agenda inbox');
+      assert.ok(status.shown >= 1 || status.error || !status.supported, 'Notifier neither showed nor reported a failure');
+      const shownLog = JSON.parse(readFileSync(join(output, 'agenda-shown.json'), 'utf8'));
+      assert.equal(Object.values(shownLog).filter(v => v === 'pending').length, 1, 'Reminder recorded once');
+      writeFileSync(join(output, 'agenda.png'), (await panel.webContents.capturePage()).toPNG());
+      console.log('Agenda IPC, reminder inbox and main-process notifier passed.');
     }
     for (const win of windows) {
       const result = await win.webContents.executeJavaScript(`({ view: document.documentElement.dataset.view, bridge: !!window.dayu, nodes: document.querySelector('#root').childElementCount, imagesReady: [...document.images].every(image => image.complete && image.naturalWidth > 0) })`);

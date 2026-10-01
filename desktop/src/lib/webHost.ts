@@ -55,6 +55,7 @@ export function webHost(): { host: Host; desk: WebDesk } {
   const cursor = emitter<{ x: number; y: number }>();
   const prefsChange = emitter<PetPrefs>();
   const menu = emitter<void>();
+  const reminderFocus = emitter<string>();
   let prefs: PetPrefs = { ...defaultPrefs, ...JSON.parse(localStorage.getItem('dayu.prefs') || '{}') };
 
   const desk: WebDesk = {
@@ -77,6 +78,15 @@ export function webHost(): { host: Host; desk: WebDesk } {
   };
 
   const host: Host = {
+    reminders: {
+      mode: 'in-app',
+      // The browser preview never asks for OS notification permission; reminders stay inside the page.
+      status: async () => ({ supported: false, error: '浏览器预览只显示应用内提醒，系统通知需在桌面版验证', shown: 0 }),
+      onStatus: () => () => {},
+      onFocus: reminderFocus.on,
+      // The panel may mount only after opening; give it a moment to subscribe.
+      focus: id => { setPanel(true, 'agenda'); setTimeout(() => reminderFocus.emit(id), 300); },
+    },
     chooseFolder:async()=>undefined,
     taskFiles:async()=>({ok:false,error:'浏览器预览不能打开本机文件，请使用桌面版'}),
     kind: 'web',

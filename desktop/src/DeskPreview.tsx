@@ -5,6 +5,7 @@ import type { WebDesk } from './lib/webHost';
 import type { PanelTab } from './lib/types';
 import { Panel } from './panel/Panel';
 import { Pet, PET_WINDOW, type Mood } from './pet/Pet';
+import { WebReminderPopups } from './panel/agenda/WebPopups';
 
 const PANEL = { width: 440, height: 680 };
 const TASKBAR = 48;
@@ -42,6 +43,7 @@ export function DeskPreview({ desk, forcedMood }: { desk: WebDesk; forcedMood?: 
       <div className="desk-icons">
         {['我的项目', '下载', '回收站'].map(name => <div key={name} className="desk-icon"><span />{name}</div>)}
       </div>
+      <WebReminderPopups />
       <div className="desk-hint">浏览器预览 · 拖动、单击、双击、在头上来回摸摸、右键都可以试试</div>
 
       <AnimatePresence>

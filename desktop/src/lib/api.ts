@@ -1,5 +1,6 @@
 import type { Settings, Snapshot, Task, Transport, ExecutorInfo } from './types';
 import type { Project,TaskTemplate,Diagnostics,Preference } from '../../../shared/types';
+import type { AgendaItem, AgendaNotification, AgendaOccurrence, AgendaPlan, AgendaPreferences, AgendaProject, AgendaSnapshot } from '../../../shared/agenda';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -45,6 +46,51 @@ export function createApi(transport: Transport) {
     preferences: () => call<Preference[]>('GET','/preferences'),
     removePreference: (key:string) => call<void>('POST','/preferences/remove',{key}),
     savePreference: (key:string,value:string) => call<Preference>('POST','/preferences/save',{key,value}),
+    agenda: agendaApi(call),
+  };
+}
+
+type Call = <T>(method: string, path: string, body?: unknown, headers?: Record<string, string>) => Promise<T>;
+export type AgendaItemInput = Partial<Omit<AgendaItem, 'id' | 'revision' | 'createdAt' | 'updatedAt' | 'planId' | 'status'>> & { status?: AgendaItem['status'] };
+export type AgendaPlanInput = Pick<AgendaPlan, 'title' | 'notes' | 'steps'> & { projectId?: string | null; timezone?: string };
+
+export const newIdempotencyKey = () => `ui-${crypto.randomUUID()}`;
+
+/**
+ * One user action = one key. Network failures retry with the same key, so a write that reached the
+ * server before the connection dropped is answered from the server's record instead of applied twice.
+ */
+export async function withIdempotency<T>(run: (key: string) => Promise<T>, retries = 2, wait = (ms: number) => new Promise(r => setTimeout(r, ms))) {
+  const key = newIdempotencyKey();
+  for (let attempt = 0; ; attempt++) {
+    try { return await run(key); }
+    catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 0 || attempt >= retries) throw error;
+      await wait(400 * 3 ** attempt);
+    }
+  }
+}
+
+function agendaApi(call: Call) {
+  const write = <T>(method: string, path: string, body: unknown, key: string) => call<T>(method, `/agenda${path}`, body, { 'Idempotency-Key': key });
+  return {
+    snapshot: () => call<AgendaSnapshot>('GET', '/agenda'),
+    calendar: (from: string, to: string, projectId?: string) => {
+      // URLSearchParams keeps the "+08:00" plus sign from turning into a space.
+      const query = new URLSearchParams({ from, to, ...(projectId ? { projectId } : {}) });
+      return call<AgendaOccurrence[]>('GET', `/agenda/calendar?${query}`);
+    },
+    createProject: (input: { name: string; description?: string }, key: string) => write<AgendaProject>('POST', '/projects', input, key),
+    updateProject: (id: string, input: { revision: number; name?: string; description?: string; archived?: boolean }, key: string) => write<AgendaProject>('PATCH', `/projects/${id}`, input, key),
+    createItem: (input: AgendaItemInput & Pick<AgendaItem, 'kind' | 'title'>, key: string) => write<AgendaItem>('POST', '/items', input, key),
+    updateItem: (id: string, input: AgendaItemInput & { revision: number }, key: string) => write<AgendaItem>('PATCH', `/items/${id}`, input, key),
+    createPlan: (input: AgendaPlanInput, key: string) => write<AgendaPlan>('POST', '/plans', input, key),
+    updatePlan: (id: string, input: Partial<AgendaPlanInput> & { revision: number }, key: string) => write<AgendaPlan>('PATCH', `/plans/${id}`, input, key),
+    acceptPlan: (id: string, revision: number, key: string) => write<AgendaPlan>('POST', `/plans/${id}/accept`, { revision }, key),
+    cancelPlan: (id: string, revision: number, key: string) => write<AgendaPlan>('POST', `/plans/${id}/cancel`, { revision }, key),
+    acknowledge: (id: string, revision: number, key: string) => write<AgendaNotification>('POST', `/notifications/${id}/action`, { revision, action: 'acknowledge' }, key),
+    snooze: (id: string, revision: number, until: string, key: string) => write<AgendaNotification>('POST', `/notifications/${id}/action`, { revision, action: 'snooze', until }, key),
+    updatePreferences: (input: AgendaPreferences, key: string) => write<AgendaPreferences>('PATCH', '/preferences', input, key),
   };
 }
 export type Api = ReturnType<typeof createApi>;

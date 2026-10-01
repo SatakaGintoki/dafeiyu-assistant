@@ -4,7 +4,9 @@ import { useApp } from '../context';
 import { useStore } from '../lib/store';
 import type { PanelTab } from '../lib/types';
 import { SPRITES } from '../pet/sprites';
-import { IconChat, IconClose, IconSettings, IconTasks } from '../ui/icons';
+import { IconCalendar, IconChat, IconClose, IconSettings, IconTasks } from '../ui/icons';
+import { useAgenda } from '../lib/agenda';
+import { Agenda } from './agenda/Agenda';
 import { ToastProvider } from '../ui/toast';
 import { Chat } from './Chat';
 import { Settings } from './Settings';
@@ -13,15 +15,19 @@ import { Tasks } from './Tasks';
 const tabs: { id: PanelTab; label: string; Icon: typeof IconChat }[] = [
   { id: 'chat', label: '对话', Icon: IconChat },
   { id: 'tasks', label: '任务', Icon: IconTasks },
+  { id: 'agenda', label: '事务', Icon: IconCalendar },
   { id: 'settings', label: '设置', Icon: IconSettings },
 ];
-const order: Record<PanelTab, number> = { chat: 0, tasks: 1, settings: 2 };
+const order: Record<PanelTab, number> = { chat: 0, tasks: 1, agenda: 2, settings: 3 };
 
 export function Panel({ initialTab = 'chat', embedded = false }: { initialTab?: PanelTab; embedded?: boolean }) {
-  const { host, store } = useApp();
+  const { host, store, agenda } = useApp();
   const [tab, setTab] = useState<PanelTab>(initialTab);
   const [direction, setDirection] = useState(1);
   const [focusTask, setFocusTask] = useState<string>();
+  const [focusReminder, setFocusReminder] = useState<string>();
+  const reminders = useAgenda(agenda, s => s.snapshot?.notifications.filter(n => n.status === 'pending').length ?? 0);
+  const clearReminder = useCallback(() => setFocusReminder(undefined), []);
   const [shown, setShown] = useState(0); // bumps on every open so the card replays its entrance
   const connection = useStore(store, s => s.connection);
   const busy = useStore(store, s => s.busy);
@@ -32,10 +38,11 @@ export function Panel({ initialTab = 'chat', embedded = false }: { initialTab?: 
     setTab(current => { setDirection(order[next] >= order[current] ? 1 : -1); return next; });
   }, []);
   useEffect(() => host.panel.onOpen(next => { setShown(n => n + 1); if (next) go(next); }), [host, go]);
+  useEffect(() => host.reminders.onFocus(id => { go('agenda'); setFocusReminder(id); }), [host, go]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !document.querySelector('.sheet')) host.panel.hide();
-      if ((e.ctrlKey || e.metaKey) && ['1', '2', '3'].includes(e.key)) go(tabs[Number(e.key) - 1].id);
+      if ((e.ctrlKey || e.metaKey) && ['1', '2', '3', '4'].includes(e.key)) go(tabs[Number(e.key) - 1].id);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -70,7 +77,7 @@ export function Panel({ initialTab = 'chat', embedded = false }: { initialTab?: 
           {tabs.map(({ id, label, Icon }) => (
             <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'on' : ''} onClick={() => go(id)}>
               {tab === id && <motion.span layoutId="tab-thumb" className="tab-thumb" transition={{ type: 'spring', stiffness: 520, damping: 40 }} />}
-              <span className="tab-label"><Icon size={16} />{label}{id === 'tasks' && activeCount > 0 && <em>{activeCount}</em>}</span>
+              <span className="tab-label"><Icon size={16} />{label}{id === 'tasks' && activeCount > 0 && <em>{activeCount}</em>}{id === 'agenda' && reminders > 0 && <em>{reminders}</em>}</span>
             </button>
           ))}
         </nav>
@@ -86,6 +93,7 @@ export function Panel({ initialTab = 'chat', embedded = false }: { initialTab?: 
               initial="enter" animate="center" exit="exit" transition={{ type: 'spring', stiffness: 420, damping: 40, opacity: { duration: 0.16 } }}>
               {tab === 'chat' && <Chat active={tab === 'chat'} onOpenTask={id => { setFocusTask(id); go('tasks'); }} onSettings={() => go('settings')} />}
               {tab === 'tasks' && <Tasks focusId={focusTask} onFocused={() => setFocusTask(undefined)} />}
+              {tab === 'agenda' && <Agenda focusReminder={focusReminder} onFocused={clearReminder} />}
               {tab === 'settings' && <Settings />}
             </motion.section>
           </AnimatePresence>

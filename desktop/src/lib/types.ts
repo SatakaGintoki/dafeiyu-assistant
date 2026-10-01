@@ -3,7 +3,7 @@ export type { Task, TaskStatus, Message, Settings, ExecutorInfo, Snapshot, AppEv
 
 export type Connection = 'connecting' | 'online' | 'offline' | 'unauthorized';
 export type BackendPetState = 'idle' | 'thinking' | 'working' | 'waiting';
-export type PanelTab = 'chat' | 'tasks' | 'settings';
+export type PanelTab = 'chat' | 'tasks' | 'agenda' | 'settings';
 export type PetSize = 's' | 'm' | 'l';
 export interface PetPrefs { size: PetSize; walk: boolean; topmost: boolean; focus?: boolean }
 export const defaultPrefs: PetPrefs = { size: 'm', walk: true, topmost: true, focus:false };

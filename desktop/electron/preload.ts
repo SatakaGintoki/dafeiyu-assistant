@@ -37,5 +37,11 @@ contextBridge.exposeInMainWorld('dayu', {
     onChange: (listener: (prefs: unknown) => void) => on('prefs:changed', listener),
   },
   startBackend: () => ipcRenderer.invoke('backend:start'),
+  reminders: {
+    status: () => ipcRenderer.invoke('reminders:status'),
+    onStatus: (listener: (status: unknown) => void) => on('reminders:status', listener),
+    onFocus: (listener: (id: unknown) => void) => on('reminders:focus', listener),
+    focus: (id: string) => ipcRenderer.send('reminders:focus', id),
+  },
   openExternal: (url: string) => ipcRenderer.send('open-external', url),
 });

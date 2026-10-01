@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { verifyPackage } from './verify-package';
 import { join, resolve } from 'node:path';
 import { SseClient } from '../src/lib/sse';
+import { ReminderNotifier } from './reminders';
 import type { PanelTab, PetPrefs, StreamItem } from '../src/lib/types';
 
 const PET = { width: 360, height: 460 };
@@ -66,7 +67,7 @@ let tray: Tray | undefined;
 const sse = new SseClient({
   url: () => `${backendUrl()}/api/v1/events`,
   headers: () => ({ Authorization: `Bearer ${token()}` }),
-  emit: (item: StreamItem) => broadcast('api:stream', item),
+  emit: (item: StreamItem) => { broadcast('api:stream', item); notifier.handle(item); },
 });
 
 function broadcast(channel: string, value: unknown) {
@@ -167,6 +168,7 @@ function showPetMenu() {
   Menu.buildFromTemplate([
     { label: '和大肥鱼聊天', click: () => showPanel('chat') },
     { label: '任务列表', click: () => showPanel('tasks') },
+    { label: '事务本', click: () => showPanel('agenda') },
     { label: '设置', click: () => showPanel('settings') },
     { type: 'separator' },
     { label: '自由散步', type: 'checkbox', checked: prefs.walk, click: item => setPrefs({ walk: item.checked }) },
@@ -201,6 +203,7 @@ function createTray() {
     { label: '隐藏大肥鱼', click: () => { hidePanel(); pet?.hide(); } },
     { label: '打开对话', click: () => { pet?.showInactive(); showPanel('chat'); } },
     { label: '任务列表', click: () => { pet?.showInactive(); showPanel('tasks'); } },
+    { label: '事务本', click: () => { pet?.showInactive(); showPanel('agenda'); } },
     { type: 'separator' },
     { label: '退出', click: () => app.quit() },
   ]));
@@ -238,10 +241,15 @@ async function startBackend(): Promise<{ ok: boolean; error?: string }> {
 
 type ApiInput = { method: string; path: string; body?: unknown; headers?: Record<string, string> };
 const methods = new Set(['GET', 'POST', 'PATCH', 'DELETE']);
+// Path plus an optional URL-encoded query (agenda calendar ranges).
+const apiPath = /^\/api\/v1\/[\w/.-]*(\?[\w%=&.+-]*)?$/;
 ipcMain.handle('api:request', async (_event, input: ApiInput) => {
-  if (!input || !methods.has(input.method) || typeof input.path !== 'string' || !/^\/api\/v1\/[\w/.-]*$/.test(input.path) || input.path.includes('..')) {
+  if (!input || !methods.has(input.method) || typeof input.path !== 'string' || !apiPath.test(input.path) || input.path.includes('..')) {
     return { status: 400, body: { error: '无效请求' } };
   }
+  return backendRequest(input);
+});
+async function backendRequest(input: ApiInput): Promise<{ status: number; body: unknown }> {
   const headers: Record<string, string> = { Authorization: `Bearer ${token()}` };
   const key = input.headers?.['Idempotency-Key'];
   if (typeof key === 'string') headers['Idempotency-Key'] = key;
@@ -259,7 +267,15 @@ ipcMain.handle('api:request', async (_event, input: ApiInput) => {
   } catch {
     return { status: 0, body: { error: '连接不到后端' } };
   }
+}
+const notifier = new ReminderNotifier({
+  request: (method, path) => backendRequest({ method, path }),
+  logFile: join(app.getPath('userData'), 'agenda-shown.json'),
+  onClick: id => { pet?.showInactive(); showPanel('agenda'); if (id) panel?.webContents.send('reminders:focus', id); },
+  onStatus: status => broadcast('reminders:status', status),
 });
+ipcMain.handle('reminders:status', () => notifier.current());
+ipcMain.on('reminders:focus', (_e, id: string) => { showPanel('agenda'); if (typeof id === 'string') panel?.webContents.send('reminders:focus', id); });
 ipcMain.handle('api:connection', () => sse.connection);
 ipcMain.handle('folder:choose',async()=>{
   const result=await dialog.showOpenDialog({properties:['openDirectory'],title:'选择项目文件夹'});
@@ -321,6 +337,8 @@ setInterval(() => {
   pet.webContents.send('pet:cursor', value);
 }, 50);
 
+// Installed builds register this id on their Start menu shortcut; Windows attributes toasts by it.
+if (app.isPackaged && process.platform === 'win32') app.setAppUserModelId('com.dayu.desktop.butler');
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on('second-instance', () => { pet?.showInactive(); showPanel('chat'); });
@@ -334,12 +352,14 @@ else {
     createPanel();
     createTray();
     sse.start();
+    notifier.start();
     if (verificationDir) void verifyPackage(verificationDir);
   });
   app.on('window-all-closed', () => { /* lives in the tray */ });
   let quitting = false;
   app.on('before-quit', event => {
     sse.stop();
+    notifier.stop();
     if (managed && !quitting) {
       event.preventDefault();
       quitting = true;

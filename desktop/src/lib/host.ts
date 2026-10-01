@@ -3,6 +3,17 @@ import type { Connection, PanelTab, PetPrefs, StreamItem, Transport, ApiResponse
 export interface Rect { x: number; y: number; width: number; height: number }
 type Off = () => void;
 
+/** What the reminder deliverer last observed; shown so the user knows whether popups can actually reach them. */
+export interface NotifierStatus {
+  /** OS notifications usable at all on this machine/session. */
+  supported: boolean;
+  /** Last delivery failure (e.g. notifications disabled in Windows settings). */
+  error?: string;
+  /** Last time the deliverer read the backend inbox successfully. */
+  checkedAt?: string;
+  shown: number;
+}
+
 /** Window-level capabilities. Electron implements them in the main process; the browser preview fakes them. */
 export interface Host {
   kind: 'electron' | 'web';
@@ -24,6 +35,15 @@ export interface Host {
     onVisibility(listener: (visible: boolean) => void): Off;
   };
   prefs: { get(): Promise<PetPrefs>; set(patch: Partial<PetPrefs>): void; onChange(listener: (prefs: PetPrefs) => void): Off };
+  reminders: {
+    /** 'system': the Electron main process alone pops OS notifications. 'in-app': this page shows them itself. */
+    mode: 'system' | 'in-app';
+    status(): Promise<NotifierStatus>;
+    onStatus(listener: (status: NotifierStatus) => void): Off;
+    /** A reminder was clicked ("查看"); the panel should reveal it. */
+    onFocus(listener: (notificationId: string) => void): Off;
+    focus(notificationId: string): void;
+  };
   startBackend(): Promise<{ ok: boolean; error?: string }>;
   openExternal(url: string): void;
   chooseFolder():Promise<string|undefined>;
@@ -31,7 +51,8 @@ export interface Host {
 }
 
 /** Shape exposed by electron/preload.ts via contextBridge. */
-export interface DayuBridge extends Omit<Host, 'kind' | 'transport'> {
+export interface DayuBridge extends Omit<Host, 'kind' | 'transport' | 'reminders'> {
+  reminders: Omit<Host['reminders'], 'mode'>;
   api: {
     request(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<ApiResponse>;
     connection(): Promise<Connection>;
@@ -46,6 +67,7 @@ export function electronHost(bridge: DayuBridge): Host {
     kind: 'electron',
     transport: { request: bridge.api.request, subscribe: bridge.api.onStream, connection: bridge.api.connection },
     pet: bridge.pet, panel: bridge.panel, prefs: bridge.prefs,
+    reminders: { mode: 'system', ...bridge.reminders },
     startBackend: bridge.startBackend, openExternal: bridge.openExternal,
     chooseFolder:bridge.chooseFolder,taskFiles:bridge.taskFiles,
   };

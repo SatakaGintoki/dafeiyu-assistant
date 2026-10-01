@@ -1,9 +1,10 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { Host } from './lib/host';
 import type { Store } from './lib/store';
+import type { AgendaStore } from './lib/agenda';
 import { defaultPrefs, type PetPrefs } from './lib/types';
 
-export const AppContext = createContext<{ host: Host; store: Store } | null>(null);
+export const AppContext = createContext<{ host: Host; store: Store; agenda: AgendaStore } | null>(null);
 
 export function useApp() {
   const value = useContext(AppContext);

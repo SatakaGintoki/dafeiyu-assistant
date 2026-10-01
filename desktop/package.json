@@ -17,6 +17,7 @@
     "package:win": "npm run build && npm run package:prepare && node scripts/package-win.mjs"
   },
   "dependencies": {
+    "@js-temporal/polyfill": "^0.5.1",
     "motion": "^13.4.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
