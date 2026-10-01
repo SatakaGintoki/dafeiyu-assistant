@@ -1,4 +1,5 @@
 import type { Executor, Task } from '../lib/types';
+import { plainText } from '../../../shared/plain-text';
 
 const pick = <T,>(list: readonly T[]) => list[Math.floor(Math.random() * list.length)];
 
@@ -40,6 +41,6 @@ export const line = {
 };
 
 export function excerpt(text: string, max = 72) {
-  const plain = text.replace(/```[\s\S]*?```/g, '[代码]').replace(/[*_`#>]/g, '').replace(/\s+/g, ' ').trim();
+  const plain = plainText(text);
   return plain.length > max ? `${plain.slice(0, max)}…` : plain;
 }

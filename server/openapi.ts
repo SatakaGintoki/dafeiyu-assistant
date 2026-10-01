@@ -37,7 +37,7 @@ export const openApiDocument={
     '/api/v1/messages':{get:{summary:'最近 200 条消息',responses:{'200':response('消息列表',{type:'array',items:ref('Message')}),...errorResponses}}},
     '/api/v1/preferences':{get:{summary:'读取已保存的显式偏好',responses:{'200':response('偏好列表',{type:'array',items:ref('Preference')}),...errorResponses}}},
     '/api/v1/preferences/{key}':{delete:{summary:'删除偏好',parameters:[{in:'path',name:'key',required:true,schema:string}],responses:{'204':response('已删除'),...errorResponses}}},
-    '/api/v1/events':{get:{summary:'SSE 事件流；每次连接收到 sync.required 后获取 /state 校准',parameters:[{in:'header',name:'Last-Event-ID',schema:{type:'integer',minimum:0}}],responses:{'200':{description:'持久化事件最多回放 1000 条，再发送 sync.required；每 15 秒心跳。',content:{'text/event-stream':{schema:string}}},...errorResponses}}},
+    '/api/v1/events':{get:{summary:'SSE 事件流；每次连接收到 sync.required 后获取 /state 校准',parameters:[{in:'header',name:'Last-Event-ID',schema:{type:'integer',minimum:0}}],responses:{'200':{description:'持久化事件最多回放 1000 条，再发送 sync.required；每 15 秒心跳。chat.stream 为累计草稿 {id,text}，chat.progress 为阶段 {text}；message.created 保存最终回复，chat.status busy=false 清除草稿。',content:{'text/event-stream':{schema:string}}},...errorResponses}}},
     '/api/v1/openapi.json':{get:{summary:'此接口规范',responses:{'200':response('OpenAPI 3.1 文档',{type:'object'}),...errorResponses}}},
   },
   components:{securitySchemes:{bearerAuth:{type:'http',scheme:'bearer'}},schemas:{
@@ -53,6 +53,6 @@ export const openApiDocument={
     ExecutorInfo:{type:'object',properties:{id:ref('Executor'),name:string,available:{type:'boolean'},detail:string}},
     Preference:{type:'object',properties:{key:string,value:string}},
     Event:{type:'object',properties:{seq:{type:'integer'},type:string,data:{},at:{type:'string',format:'date-time'}}},
-    State:{type:'object',properties:{messages:{type:'array',items:ref('Message')},tasks:{type:'array',items:ref('Task')},settings:ref('Settings'),executors:{type:'array',items:ref('ExecutorInfo')},busy:{type:'boolean'},petState:{enum:['idle','thinking','working','waiting']}}},
+    State:{type:'object',properties:{messages:{type:'array',items:ref('Message')},tasks:{type:'array',items:ref('Task')},settings:ref('Settings'),executors:{type:'array',items:ref('ExecutorInfo')},chatStream:{type:'object',description:'进行中的累计回复草稿，结束或取消后移除',properties:{id:string,text:string}},chatProgress:string,busy:{type:'boolean'},petState:{enum:['idle','thinking','working','waiting']}}},
   }},
 };

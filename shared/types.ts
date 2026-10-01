@@ -23,5 +23,5 @@ export interface Settings {
   claudeFullAccess?: boolean; taskTimeoutMinutes: number; hasApiKey: boolean;
 }
 export interface ExecutorInfo { id: Executor; name: string; available: boolean; detail: string }
-export interface Snapshot { messages: Message[]; tasks: Task[]; settings: Settings; executors: ExecutorInfo[]; busy: boolean; petState: string }
+export interface Snapshot { messages: Message[]; tasks: Task[]; settings: Settings; executors: ExecutorInfo[]; busy: boolean; petState: string; chatStream?: {id:string;text:string}; chatProgress?: string }
 export interface AppEvent { seq: number; type: string; data: unknown; at: string }

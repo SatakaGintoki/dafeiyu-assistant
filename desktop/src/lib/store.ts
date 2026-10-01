@@ -12,6 +12,7 @@ export interface AppState {
   busy: boolean;
   petState: BackendPetState;
   progress: string;
+  streamText: string;
 }
 
 /** Things the pet reacts to. Emitted only for live events, never for snapshots. */
@@ -28,7 +29,7 @@ const finished = new Set(['succeeded', 'failed', 'cancelled', 'interrupted']);
 
 export class Store {
   readonly api: Api;
-  private state: AppState = { connection: 'connecting', ready: false, messages: [], tasks: [], executors: [], busy: false, petState: 'idle', progress: '' };
+  private state: AppState = { connection: 'connecting', ready: false, messages: [], tasks: [], executors: [], busy: false, petState: 'idle', progress: '', streamText: '' };
   private listeners = new Set<() => void>();
   private signalListeners = new Set<(signal: Signal) => void>();
   private syncing = false;
@@ -81,7 +82,7 @@ export class Store {
         ready: true, messages: snapshot.messages, tasks: snapshot.tasks, settings: snapshot.settings,
         executors: snapshot.executors, busy: snapshot.busy,
         petState: petStates.has(snapshot.petState) ? snapshot.petState as BackendPetState : 'idle',
-        ...(snapshot.busy ? {} : { progress: '' }),
+        progress: snapshot.chatProgress || '', streamText: snapshot.busy ? snapshot.chatStream?.text || '' : '',
       });
     } catch {
       // Stream status tells the UI whether the backend is reachable; keep the last known data.
@@ -101,7 +102,7 @@ export class Store {
       case 'message.created': {
         const message = data as Message;
         if (this.state.messages.some(m => m.id === message.id)) return;
-        this.patch({ messages: [...this.state.messages, message].slice(-MAX) });
+        this.patch({ messages: [...this.state.messages, message].slice(-MAX), ...(message.role==='assistant'&&!message.taskId?{streamText:''}:{}) });
         if (live && message.role === 'assistant' && !message.taskId) this.signal({ type: 'assistant.message', message });
         return;
       }
@@ -123,8 +124,9 @@ export class Store {
         return;
       }
       case 'chat.status':
-        this.patch({ busy: !!data.busy, ...(data.busy ? {} : { progress: '' }), ...(petStates.has(data.petState) ? { petState: data.petState } : {}) });
+        this.patch({ busy: !!data.busy, ...(data.busy ? {} : { progress: '', streamText: '' }), ...(petStates.has(data.petState) ? { petState: data.petState } : {}) });
         return;
+      case 'chat.stream': if(this.state.busy)this.patch({streamText: String(data.text || '')}); return;
       case 'chat.progress': this.patch({ progress: String(data.text || '') }); return;
       case 'chat.error': if (live) this.signal({ type: 'chat.error', error: String(data.error || '') }); return;
       case 'settings.updated': this.patch({ settings: data as Settings }); return;
@@ -133,7 +135,7 @@ export class Store {
   }
 
   /** Optimistic busy flag so the UI reacts before the event round-trip. */
-  markBusy() { this.patch({ busy: true, progress: '' }); }
+  markBusy() { this.patch({ busy: true, progress: '正在等待模型回复', streamText: '' }); }
   replaceTask(task: Task) {
     const exists = this.state.tasks.some(t => t.id === task.id);
     this.patch({ tasks: exists ? this.state.tasks.map(t => t.id === task.id && t.updatedAt <= task.updatedAt ? task : t) : [...this.state.tasks, task] });

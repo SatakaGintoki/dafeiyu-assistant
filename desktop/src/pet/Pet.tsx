@@ -2,6 +2,7 @@ import { animate, AnimatePresence, motion, useMotionValue, useSpring, useTransfo
 import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { usePageVisible, usePrefs, useApp } from '../context';
 import { useStore } from '../lib/store';
+import { activity } from '../lib/activity';
 import type { PanelTab } from '../lib/types';
 import { IconChat, IconMore, IconTasks } from '../ui/icons';
 import { SpeechBubble, useBubbles } from './Bubble';
@@ -435,11 +436,12 @@ export function Pet({ forcedMood }: { forcedMood?: Mood }) {
   }, [mood, host]);
 
   // ---- status pill ----
+  const currentActivity=activity(tasks,busy,progress);
   const pill = mood === 'offline' ? { tone: 'warn', text: connection === 'unauthorized' ? '令牌无效' : '后端未连接' }
     : busy ? { tone: 'think', text: progress ? excerpt(progress, 16) : '思考中' }
-    : running.length ? { tone: 'work', text: running.length > 1 ? `${running.length} 个任务进行中` : excerpt(running[0].title, 14) }
+    : running.length ? { tone: 'work', text: running.length > 1 ? `${running.length} 个任务执行中` : `执行中 · ${excerpt(running[0].title, 10)}` }
     : queued.length ? { tone: 'wait', text: `${queued.length} 个任务排队中` }
-    : null;
+    : currentActivity.taskId ? {tone:'work',text:'权限受阻 · 查看任务'} : null;
 
   const showDock = (hovered || dockHover) && !dragging && !walking;
   const sprite = SPRITES[spriteId];

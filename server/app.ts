@@ -27,7 +27,7 @@ export function createApp(options:AppOptions) {
   if(!options.token && !process.env.DAYU_API_TOKEN && !existsSync(tokenFile))writeFileSync(tokenFile,token,{mode:0o600});
   const internalToken=randomBytes(32).toString('hex');
   const clients=new Set<Response>();
-  let shuttingDown=false, busy=false, petState='idle', internalUrl='', runtime:Runtime|undefined, chatController:AbortController|undefined, chatWork:Promise<void>|undefined;
+  let shuttingDown=false, busy=false, petState='idle', internalUrl='', runtime:Runtime|undefined, chatController:AbortController|undefined, chatWork:Promise<void>|undefined, chatStream:{id:string;text:string}|undefined, chatProgress='';
   const derivePetState=()=>busy?'thinking':store.tasks().some(t=>['running','cancelling'].includes(t.status))?'working':store.tasks().some(t=>t.status==='queued')?'waiting':'idle';
   const publish=(type:string,data:unknown)=> {
     const event=store.event(type,data);
@@ -68,7 +68,7 @@ export function createApp(options:AppOptions) {
   app.use(express.json({limit:'128kb'}));
   addAgendaRoutes(app,agenda);
   addWorkflows(app,store,config,tasks,()=>busy,async()=>{await runtime?.close();runtime=undefined;emit('settings.updated',config.value);});
-  app.get('/api/v1/state',(_req,res)=>res.json({messages:store.messages().slice(-200),tasks:store.tasks().slice(-200),settings:config.value,executors:executorCatalog(config),busy,petState}));
+  app.get('/api/v1/state',(_req,res)=>res.json({messages:store.messages().slice(-200),tasks:store.tasks().slice(-200),settings:config.value,executors:executorCatalog(config),busy,petState,chatStream,chatProgress}));
   app.get('/api/v1/settings',(_req,res)=>res.json(config.value));
   app.get('/api/v1/openapi.json',(_req,res)=>res.json(openApiDocument));
   app.patch('/api/v1/settings',async(req,res)=>{
@@ -101,21 +101,31 @@ export function createApp(options:AppOptions) {
     const input=z.object({message:z.string().trim().min(1).max(12000)}).strict().parse(req.body);
     if(busy)throw new ApiError(409,'管家正在回复，请等待或取消当前回复');
     if(config.value.runtime!=='demo' && !config.apiKey)throw new ApiError(503,'尚未配置 DeepSeek API Key');
-    busy=true;chatController=new AbortController();
+    busy=true;chatProgress='正在等待模型回复';chatController=new AbortController();
     const controller=chatController;
     const message=store.message('user',input.message);emit('message.created',message);emit('chat.status',{busy,petState});
     if(!runtime)runtime=options.runtimeFactory?.(config,store,tools) || (config.value.runtime==='harness'?new HarnessRuntime(config,store,()=>internalUrl,internalToken):config.value.runtime==='deepseek'?new DirectRuntime(config,store,tools):new DemoRuntime());
-    const currentRuntime=runtime;
+    const currentRuntime=runtime;chatStream={id:message.id,text:''};
     chatWork=(async()=>{
       const timer=setTimeout(()=>controller.abort(new Error('管家回复超时，请检查连接后重试')),180000);
+      let lastSent=0,streamTimer:ReturnType<typeof setTimeout>|undefined;
+      const flushStream=()=>{
+        if(streamTimer){clearTimeout(streamTimer);streamTimer=undefined;}
+        lastSent=Date.now();if(chatStream)emit('chat.stream',chatStream);
+      };
       try{
-        const answer=await currentRuntime.reply(input.message,controller.signal,text=>emit('chat.progress',{text}));
+        const answer=await currentRuntime.reply(input.message,controller.signal,text=>{if(text!==chatProgress){chatProgress=text;emit('chat.progress',{text});}},text=>{
+          chatStream={id:message.id,text:config.redact(text)};
+          if(!text){flushStream();lastSent=0;}
+          else if(!lastSent||Date.now()-lastSent>=50)flushStream();
+          else if(!streamTimer)streamTimer=setTimeout(flushStream,50-(Date.now()-lastSent));
+        });
         controller.signal.throwIfAborted();emit('message.created',store.message('assistant',config.redact(answer)));
       }catch(error){
         const reason=controller.signal.aborted ? controller.signal.reason : error;
         const detail=config.redact(reason instanceof Error?reason.message:String(reason));
         emit('chat.error',{error:detail});emit('message.created',store.message('assistant',`这次没能完成回复：${detail}。已派出的任务可在任务列表中查看。`));
-      }finally{clearTimeout(timer);busy=false;chatController=undefined;emit('chat.status',{busy,petState:derivePetState()});}
+      }finally{clearTimeout(timer);if(streamTimer)clearTimeout(streamTimer);busy=false;chatStream=undefined;chatProgress='';chatController=undefined;emit('chat.status',{busy,petState:derivePetState()});}
     })();
     res.status(202).json({messageId:message.id,status:'accepted'});
   });

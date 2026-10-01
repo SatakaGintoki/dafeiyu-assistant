@@ -1,4 +1,5 @@
 import type { Task } from '../shared/types';
+import { taskSummary } from '../shared/plain-text';
 
 export const conversationStyle = `【回复方式：像微信里的熟悉搭档】
 - 默认只返回重点。闲聊通常 1-2 句、10-60 字；普通问答通常 2-3 句、120 字以内。这是表达目标，不是机械凑字数。
@@ -20,7 +21,8 @@ export const conversationStyle = `【回复方式：像微信里的熟悉搭档�
 // Full executor output stays on the task; chat carries only a bounded preview.
 export function taskNotification(task:Task) {
   const label=task.status==='succeeded'?'执行结束':task.status==='cancelled'?'已取消':task.status==='interrupted'?'已中断':'执行遇到问题';
-  const detail=(task.status==='succeeded'?task.result:task.error).trim().replace(/\s+/g,' ');
+  const source=(task.status==='succeeded'?task.result:task.error).trim();
+  const detail=taskSummary(source);
   const preview=detail.length>160?detail.slice(0,160)+'…':detail;
-  return `「${task.title}」${label}。${preview?'\n'+preview:''}${detail.length>160?'\n完整内容在任务详情里。':''}`;
+  return `「${task.title}」${label}。${preview?'\n'+preview:''}${detail.length>160||source!==detail?'\n完整内容在任务详情里。':''}`;
 }

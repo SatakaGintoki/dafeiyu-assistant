@@ -192,11 +192,11 @@ test('DeepSeek API tool loop dispatches once and returns the real answer',async(
   store.message('user','创建演示任务');let calls=0;
   const fetcher:typeof fetch=async(_url,init)=>{
     const body=JSON.parse(init!.body as string);calls++;
-    assert.match(body.messages[0].content,/默认只返回重点/);
+    assert.equal(body.stream,true);assert.match(body.messages[0].content,/默认只返回重点/);
     assert.ok(!body.messages[0].content.includes('已找到 '),'chat context must not include eager executor discovery');
     assert.match(body.messages[0].content,/需要检查程序可用性时调用 get_runtime_status/);
     assert.ok(!JSON.stringify(body.messages).includes('旧任务的冗长执行日志'));
-    if(calls===1)return Response.json({choices:[{message:{role:'assistant',content:null,tool_calls:[{id:'call-1',type:'function',function:{name:'dispatch_task',arguments:JSON.stringify({title:'演示',instruction:'x',executor:'demo'})}}]}}]});
+    if(calls===1)return new Response('data: '+JSON.stringify({choices:[{delta:{tool_calls:[{index:0,id:'call-1',type:'function',function:{name:'dispatch_task',arguments:JSON.stringify({title:'演示',instruction:'x',executor:'demo'})}}]}}]})+'\n\ndata: '+JSON.stringify({choices:[{delta:{},finish_reason:'tool_calls'}]})+'\n\ndata: [DONE]\n\n',{headers:{'Content-Type':'text/event-stream'}});
     assert.equal(body.messages.at(-1).role,'tool');assert.ok(JSON.parse(body.messages.at(-1).content).id);
     return Response.json({choices:[{message:{role:'assistant',content:'任务已排队。'}}]});
   };
@@ -209,6 +209,25 @@ test('DeepSeek errors never silently fall back to demo',async()=>{
   const manager=new TaskManager(store,config,{async run(){return {result:''};}},()=>{});
   const runtime=new DirectRuntime(config,store,new ButlerTools(manager,store,config),async()=>new Response('',{status:401}));
   await assert.rejects(()=>runtime.reply('x',new AbortController().signal,()=>{}),/HTTP 401/);await manager.close();store.close();
+});
+
+test('chat streams before completion, reconnect snapshots recover drafts, final history contains one answer',async t=>{
+  let finish!:()=>void;
+  const {req,service}=await fixture(t,{runtimeFactory:()=>({async reply(_input:string,_signal:AbortSignal,progress:(text:string)=>void,text:(value:string)=>void){
+    progress('正在回复');text('');text('你好，');await new Promise<void>(r=>{finish=r;});text('你好，在呢。');return '你好，在呢。';
+  },async close(){finish?.();}})});
+  service.config.update({runtime:'deepseek',apiKey:'test-only'});
+  assert.equal((await req('/api/v1/chat','POST',{message:'你好'})).status,202);
+  await waitFor(()=>!!finish);
+  const during=await (await req('/api/v1/state')).json();
+  assert.equal(during.busy,true);assert.equal(during.chatStream.text,'你好，');assert.equal(during.chatProgress,'正在回复');
+  assert.equal(during.messages.filter((m:any)=>m.role==='assistant').length,0);
+  assert.ok(service.store.eventsAfter(0).some(e=>e.type==='chat.stream'&&(e.data as any).text==='你好，'),'first content must publish even immediately after resetting a tool step');
+  finish();await waitFor(()=>service.store.messages().some(m=>m.role==='assistant'));
+  const after=await (await req('/api/v1/state')).json();
+  assert.equal(after.busy,false);assert.equal(after.chatStream,undefined);
+  assert.equal(after.messages.filter((m:any)=>m.role==='assistant').length,1);
+  assert.equal(after.messages.at(-1).content,'你好，在呢。');
 });
 
 test('CLI runner handles a real child process and sends prompt via stdin',async()=>{

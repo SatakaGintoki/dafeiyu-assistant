@@ -11,6 +11,7 @@ import { ToastProvider } from '../ui/toast';
 import { Chat } from './Chat';
 import { Settings } from './Settings';
 import { Tasks } from './Tasks';
+import { activity } from '../lib/activity';
 
 const tabs: { id: PanelTab; label: string; Icon: typeof IconChat }[] = [
   { id: 'chat', label: '对话', Icon: IconChat },
@@ -31,7 +32,8 @@ export function Panel({ initialTab = 'chat', embedded = false }: { initialTab?: 
   const [shown, setShown] = useState(0); // bumps on every open so the card replays its entrance
   const connection = useStore(store, s => s.connection);
   const busy = useStore(store, s => s.busy);
-  const petState = useStore(store, s => s.petState);
+  const progress = useStore(store, s => s.progress);
+  const tasks = useStore(store, s => s.tasks);
   const activeCount = useStore(store, s => s.tasks.filter(t => t.status === 'queued' || t.status === 'running' || t.status === 'cancelling').length);
 
   const go = useCallback((next: PanelTab) => {
@@ -49,9 +51,7 @@ export function Panel({ initialTab = 'chat', embedded = false }: { initialTab?: 
   }, [host, go]);
 
   const status = connection !== 'online' ? { dot: 'off', text: connection === 'connecting' ? '连接中…' : '离线' }
-    : busy ? { dot: 'think', text: '思考中…' }
-    : activeCount ? { dot: 'work', text: `${activeCount} 个任务进行中` }
-    : { dot: 'on', text: petState === 'waiting' ? '等待中' : '在线 · 随时待命' };
+    : activity(tasks,busy,progress);
 
   return (
     <ToastProvider>
@@ -65,7 +65,7 @@ export function Panel({ initialTab = 'chat', embedded = false }: { initialTab?: 
               <h1>大肥鱼</h1>
               <AnimatePresence mode="popLayout" initial={false}>
                 <motion.p key={status.text} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}>
-                  {status.text}
+                  {'taskId' in status && status.taskId ? <button className="ghost" onClick={()=>{setFocusTask(status.taskId);go('tasks');}}>{status.text}</button> : status.text}
                 </motion.p>
               </AnimatePresence>
             </div>

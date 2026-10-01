@@ -9,6 +9,7 @@ import { useToast } from '../ui/toast';
 import { Markdown } from './Markdown';
 import { StatusIcon, statusLabel } from './StatusIcon';
 import type { Project,TaskTemplate } from '../../../shared/types';
+import { permissionBlocked } from '../lib/activity';
 
 type Filter = 'all' | 'active' | 'done' | 'failed';
 const filters: { id: Filter; label: string }[] = [
@@ -119,7 +120,7 @@ function TaskCard({ task, open, onToggle }: { task: Task; open: boolean; onToggl
           <div className="task-title">{task.title}</div>
           <div className="task-meta">
             <span className={`exec exec-${task.executor}`}>{executorName[task.executor] ?? task.executor}</span>
-            <span>{statusLabel[task.status]}</span>
+            <span>{permissionBlocked(task)?'权限受阻':statusLabel[task.status]}</span>
             <span>·</span>
             <span>{isActive ? `已用 ${elapsed(task)}` : ago(task.updatedAt)}</span>
           </div>
@@ -153,7 +154,9 @@ function TaskCard({ task, open, onToggle }: { task: Task; open: boolean; onToggl
                 <div className="file-changes">{task.checkpoint.changes.map((change,index)=><button className="file-change" key={change.path} disabled={change.kind==='deleted'} onClick={()=>void host.taskFiles(task.id,'reveal',index).then(r=>{if(!r.ok)toast(r.error||'无法定位','error');})}><span>{({added:'新增',modified:'修改',deleted:'删除'})[change.kind]}</span> {change.path}</button>)}</div>
                 {!isActive&&<button className="btn" disabled={pending} onClick={async()=>{setPending(true);try{const r=await host.taskFiles(task.id,'recover');toast(r.ok?'已恢复到新文件夹，原项目未覆盖':r.error||'恢复失败',r.ok?'success':'error');}finally{setPending(false);}}}>恢复任务前文件到新文件夹</button>}
               </section>}
-              {task.error && <section><h5>错误</h5><p className="error-text">{task.error}</p></section>}
+              {task.error && <section><h5>{permissionBlocked(task)?'需要处理执行器权限':'错误'}</h5><p className="error-text">{task.error}</p>
+                {permissionBlocked(task)&&<><p className="hint">请在 {executorName[task.executor] ?? task.executor} 中检查该项目被拒绝的工具与权限策略。处理后点击“继续任务”，会沿用原任务和已有文件；直接继续可能再次被拦截。</p><button className="btn" onClick={()=>void host.taskFiles(task.id,'reveal',-1).then(r=>{if(!r.ok)toast(r.error||'无法定位项目','error');})}>打开项目目录</button></>}
+              </section>}
               {!!task.attempts?.length&&<section><h5>之前的执行</h5>{task.attempts.map((attempt,index)=><details key={index}><summary>第 {index+1} 次 · {statusLabel[attempt.status]}</summary><p>{attempt.error||attempt.result||'未完成'}</p></details>)}</section>}
               <div className="task-actions">
                 {isActive && task.status !== 'cancelling' && (

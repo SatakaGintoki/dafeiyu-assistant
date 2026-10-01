@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "大肥鱼管家后端",
-    "version": "0.2.10",
+    "version": "0.2.11",
     "description": "独立本地后端。通过 Bearer Token 认证；SSE 使用 fetch 流。CLI 运行成功表示执行器已结束，不等于独立验证业务目标。"
   },
   "servers": [
@@ -4171,7 +4171,7 @@
         ],
         "responses": {
           "200": {
-            "description": "持久化事件最多回放 1000 条，再发送 sync.required；每 15 秒心跳。",
+            "description": "持久化事件最多回放 1000 条，再发送 sync.required；每 15 秒心跳。chat.stream 为累计草稿 {id,text}，chat.progress 为阶段 {text}；message.created 保存最终回复，chat.status busy=false 清除草稿。",
             "content": {
               "text/event-stream": {
                 "schema": {
@@ -5391,6 +5391,21 @@
             "items": {
               "$ref": "#/components/schemas/ExecutorInfo"
             }
+          },
+          "chatStream": {
+            "type": "object",
+            "description": "进行中的累计回复草稿，结束或取消后移除",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          },
+          "chatProgress": {
+            "type": "string"
           },
           "busy": {
             "type": "boolean"

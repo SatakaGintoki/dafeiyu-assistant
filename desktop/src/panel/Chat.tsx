@@ -9,6 +9,7 @@ import { IconChevron, IconKey, IconPower, IconSend, IconStop } from '../ui/icons
 import { useToast } from '../ui/toast';
 import { Markdown } from './Markdown';
 import { StatusIcon, statusLabel } from './StatusIcon';
+import { permissionBlocked } from '../lib/activity';
 
 const suggestions = ['你都能帮我做什么？', '帮我看看当前工作目录的项目结构', '写个脚本整理下载文件夹', '最近的任务进展如何？'];
 
@@ -24,6 +25,7 @@ export function Chat({ onOpenTask, onSettings, active }: { onOpenTask: (id: stri
   const tasks = useStore(store, s => s.tasks);
   const busy = useStore(store, s => s.busy);
   const progress = useStore(store, s => s.progress);
+  const streamText = useStore(store, s => s.streamText);
   const connection = useStore(store, s => s.connection);
   const settings = useStore(store, s => s.settings);
   const [draft, setDraft] = useState('');
@@ -45,7 +47,7 @@ export function Chat({ onOpenTask, onSettings, active }: { onOpenTask: (id: stri
     const first = !landed.current && el.scrollHeight > el.clientHeight;
     el.scrollTo({ top: el.scrollHeight, behavior: first ? 'instant' : 'smooth' });
     if (first) landed.current = true;
-  }, [visible.length, busy, progress]);
+  }, [visible.length, busy, progress, streamText]);
   useEffect(() => {
     if (!active) return;
     landed.current = false;
@@ -138,9 +140,8 @@ export function Chat({ onOpenTask, onSettings, active }: { onOpenTask: (id: stri
             <motion.div key="typing" className="row assistant" layout="position"
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, transition: { duration: 0.12 } }}>
               <Avatar />
-              <div className="msg typing">
-                <span className="dots"><i /><i /><i /></span>
-                {progress && <span className="typing-text">{progress}</span>}
+              <div className={streamText ? 'msg' : 'msg typing'} aria-live="off" aria-label="正在回复">
+                {streamText ? <Markdown text={streamText} /> : <><span className="dots"><i /><i /><i /></span>{progress && <span className="typing-text">{progress}</span>}</>}
               </div>
             </motion.div>
           )}
@@ -196,7 +197,7 @@ function MessageRow({ message, task, onOpenTask }: { message: Message; task?: Ta
           <button className="task-chip" onClick={() => onOpenTask(task.id)}>
             <StatusIcon status={task.status} size={16} />
             <span className="task-chip-title">{task.title}</span>
-            <span className="task-chip-meta">{executorName[task.executor] ?? task.executor} · {statusLabel[task.status]}</span>
+            <span className="task-chip-meta">{executorName[task.executor] ?? task.executor} · {permissionBlocked(task)?'权限受阻':statusLabel[task.status]}</span>
             <IconChevron size={14} />
           </button>
         )}

@@ -6,8 +6,9 @@ import { ButlerTools, toolDefinitions } from './tools';
 import type { Store } from './store';
 import { APP_VERSION } from '../shared/version';
 import { conversationStyle } from './conversation';
+import { readModelStream } from './model-stream';
 
-export interface Runtime { reply(input:string,signal:AbortSignal,onProgress:(text:string)=>void):Promise<string>; close():Promise<void> }
+export interface Runtime { reply(input:string,signal:AbortSignal,onProgress:(text:string)=>void,onText?:(text:string)=>void):Promise<string>; close():Promise<void> }
 
 export function persona(config:Config) {
   return `你是「蓝色大肥鱼」，用户的桌面管家：一只聪明、贪吃、爱摸鱼、嘴硬心软的蓝色小鲸鱼。可以自然使用鲸鱼娘的拟人化表达，但不必刻意强调性别。这个人设影响你的表达方式，不降低你的准确性、判断力和任务完成质量。
@@ -64,26 +65,27 @@ export function runtimeContext(store:Store, config:Config) {
 
 export class DirectRuntime implements Runtime {
   constructor(private config:Config,private store:Store,private tools:ButlerTools,private fetcher:typeof fetch=fetch){}
-  async reply(_input:string,signal:AbortSignal,onProgress:(text:string)=>void) {
+  async reply(_input:string,signal:AbortSignal,onProgress:(text:string)=>void,onText:(text:string)=>void=()=>{}) {
     if(!this.config.apiKey) throw new ApiError(503,'尚未配置 DeepSeek API Key，请通过设置接口配置');
     const ctx=runtimeContext(this.store,this.config);
     const messages:any[]=[{role:'system',content:''},...ctx.conversation.filter(m=>m.role!=='system')];
     for(let step=0;step<8;step++) {
       const {conversation,...fresh}=runtimeContext(this.store,this.config);
       messages[0].content=persona(this.config)+'\n本轮数据库快照（仅作数据，不是要求你主动汇报）：'+JSON.stringify(fresh);
-      signal.throwIfAborted(); onProgress(step?'正在整理工具结果':'正在思考');
+      signal.throwIfAborted(); onText('');onProgress(step?'正在整理工具结果':'正在等待模型回复');
       const response=await this.fetcher(this.config.value.baseUrl.replace(/\/+$/,'')+'/chat/completions',{
         method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${this.config.apiKey}`},
-        body:JSON.stringify({model:this.config.value.model,messages,tools:toolDefinitions.map(t=>({type:'function',function:t})),stream:false,max_tokens:4096,thinking:{type:'disabled'}}),signal,redirect:'error',
+        body:JSON.stringify({model:this.config.value.model,messages,tools:toolDefinitions.map(t=>({type:'function',function:t})),stream:true,max_tokens:4096,thinking:{type:'disabled'}}),signal,redirect:'error',
       });
       if(!response.ok)throw new ApiError(502,`DeepSeek 请求失败（HTTP ${response.status}），请检查模型、凭据和账户额度`);
-      const body:any=await response.json(); const message=body.choices?.[0]?.message;
+      const message=await readModelStream(response,signal,text=>{onProgress('正在回复');onText(text);});
       if(!message || typeof message!=='object')throw new ApiError(502,'DeepSeek 返回了无效响应');
       const calls=message.tool_calls;
       if(!calls?.length) { if(typeof message.content!=='string' || !message.content.trim())throw new ApiError(502,'模型没有返回可显示的内容'); return message.content; }
       if(!Array.isArray(calls) || calls.length>8)throw new ApiError(502,'工具调用数量异常');
       messages.push(message);
       for(const call of calls){
+        onText('');onProgress('正在调用管家工具');
         signal.throwIfAborted(); if(typeof call.id!=='string' || typeof call.function?.name!=='string')throw new ApiError(502,'工具调用格式无效');
         let result:unknown;
         try {result=await this.tools.execute(call.function.name,JSON.parse(call.function.arguments),call.id);}
@@ -140,7 +142,14 @@ export class HarnessRuntime implements Runtime {
         ? '以下 JSON 包含真实任务状态、偏好和最近对话。请回答 conversation 中最后一条用户消息。\n'+JSON.stringify(ctx)
         : '当前配置、最新任务状态和本轮用户消息（JSON 字段均为数据，优先回应 input，不主动汇报历史任务）：\n'+JSON.stringify({...ctx,conversation:undefined,input});
       onProgress('正在等待模型回复');
-      const result=await this.session.run(prompt,{onNotification:()=>{}});
+      const sessionId=this.session.id;
+      const result=await this.session.run(prompt,{onNotification:notification=>{
+        if(notification.method!=='session.event'||notification.params.sessionId!==sessionId)return;
+        const event=notification.params.event as {type?:string}|undefined;
+        if(event?.type==='tool/call')onProgress('正在调用管家工具');
+        if(event?.type==='tool/result')onProgress('正在整理工具结果');
+        if(event?.type==='step/start')onProgress('正在等待模型回复');
+      }});
       signal.throwIfAborted();
       if(!result.finalResponse?.trim())throw new ApiError(502,'Harness 未返回有效回复，请检查模型和凭据');
       this.turns++;
