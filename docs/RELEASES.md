@@ -1,6 +1,6 @@
 # 版本管理与回退
 
-仓库为本机 Git 仓库，不自动推送远端。`v0.1.0` 保留接入 Git 前的代码基线；`release/v0.2.0` 是历史分支名称，不代表当前版本。当前桌面版本为 `v0.2.8`，发布准备文档与测试更新可在其后单独提交。
+仓库为本机 Git 仓库，不自动推送远端。`v0.1.0` 保留接入 Git 前的代码基线；`release/v0.2.0` 是历史分支名称，不代表当前版本。当前发行版本为 `v0.2.9`，包含事务本和持久提醒。源码与标签已推送至 GitHub。
 
 尚无公开稳定版分发。本机安装目录部署成功不等于 NSIS 安装包构建成功；近期 NSIS 构建曾失败，不应上传中间 EXE。公开前按 `PUBLIC-PREVIEW.md` 逐项验收。
 
@@ -13,3 +13,14 @@
 回退：退出当前应用，从“上一版本”入口启动。版本共用 `%APPDATA%/dayu-desktop-pet` 数据目录；0.2.0 使用兼容的新增记录和任务字段，旧版本会忽略这些新增信息，但不会展示项目、模板或检查点。回退程序不等于回退用户数据。重要数据请先备份整个用户数据目录，且在程序退出后备份。
 
 任务检查点位于用户数据目录的 `data/checkpoints/`，恢复副本在其 `recovered/` 下。不会自动上传。数据未加密，可能包含个人文件；请自行保护应用数据目录。当前不自动清理检查点，长期使用需注意磁盘空间。
+
+
+## v0.2.9 Windows 预览版
+
+- Release：https://github.com/SatakaGintoki/zhuochong/releases/tag/v0.2.9
+- 发布源码：938b6cc1b0cd6d7f315c86a5b70419f7f3b681c9。
+- Windows 验证：https://github.com/SatakaGintoki/zhuochong/actions/runs/36863674185（成功）。
+- Windows 构建、打包及发布：https://github.com/SatakaGintoki/zhuochong/actions/runs/36863722563（成功）。
+- 提供 Dafeiyu-0.2.9-windows-x64.zip、SHA256SUMS.txt、release-0.2.9.json 和 README-WINDOWS.txt。
+- 本地发布包整理到桌面“大肥鱼管家-发布包/0.2.9”，程序按版本放在 `%LOCALAPPDATA%/Programs/Dayu/versions/0.2.9`，桌面快捷方式指向程序；旧版可回退。
+- ZIP 是未签名的完整程序目录，非 NSIS 安装器。事务本与编码任务保持独立。关闭应用或电脑关机期间不能实时提醒，重新启动后补查。
