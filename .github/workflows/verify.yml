@@ -1,0 +1,31 @@
+name: Windows verification
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - run: npm ci
+      - run: npm --prefix desktop ci
+      - run: npm run check:repository
+      - run: npm run check
+      - run: npm --prefix desktop run check
+      - run: npm run docs
+      - run: git diff --exit-code -- docs/openapi.json
+      - run: npm --prefix desktop run test:desktop
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: isolated-desktop-test
+          path: work/desktop-smoke-*/result.json
+          if-no-files-found: ignore

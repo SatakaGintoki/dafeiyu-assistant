@@ -29,6 +29,7 @@ try {
   delete env.VITE_DEV_URL;
   electron = spawn(process.execPath, ['node_modules/electron/cli.js', 'scripts/smoke.cjs'], { cwd: desktop, env, stdio: 'inherit' });
   const [code] = await once(electron, 'exit');
+  if(code!==0)console.error(`Electron smoke exited with code ${code}; inspect work/desktop-smoke-*/result.json or Windows application-control logs if no report was created.`);
   process.exitCode = code ?? 1;
 } catch (error) {
   console.error(error.message);

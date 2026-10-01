@@ -1,94 +1,81 @@
-# 大肥鱼管家 · 桌面 AI 助手
+# 大肥鱼管家
 
-当前开发版本 **0.2.0**。新增项目管理、任务模板、配置诊断、文件变更清单、检查点恢复、偏好管理和专注模式。详见 `CHANGELOG.md`、`docs/RELEASES.md`；未完成项在 `docs/ROADMAP.md`，不把路线图当作已实现功能。
+一个有性格、能管理 AI 工作进度的 Windows 桌面搭档。聊天交代任务，后台执行，遇到中断后继续做。
 
-项目包含本地后端和 Electron + React 桌宠前端，通过 HTTP + SSE 通信。桌面端提供聊天、任务管理、设置、托盘和角色状态动画。
+当前版本 **0.2.8 · 早期预览**。项目正在准备公开测试，还没有正式稳定版下载。构建说明不代表已经发布、签名的安装器。
 
-## 桌宠启动
+## 能做什么
 
-已提供 Windows 安装版：安装后直接双击桌面“大肥鱼管家”，自带后端和运行环境。安装版启动、退出与数据目录说明见 `docs/WINDOWS-APP.md`。以下命令适用于开发版。
+- 常驻桌宠、短对话、托盘召回和专注模式。
+- 通过 DeepSeek 理解需求，调用已安装的 Codex、Claude Code 或 ZCode。
+- 查看后台任务状态、结果、错误及文件变化，支持取消、超时和中断续做。
+- Claude 优先恢复保存的会话；旧任务可从已有文件和日志继续，保留原任务 ID。
+- 项目、模板、显式偏好与有限范围文件检查点。
 
-双击根目录的 `启动桌宠.cmd`，或在 `desktop` 目录运行 `npm.cmd start`。首次构建后显示桌宠，双击角色打开面板。如果提示后端未运行，点击面板中的“启动”；也可先运行 `启动后端.cmd`。后端在独立窗口运行，退出桌宠不会停止后端任务，关闭后端请在其窗口按 Ctrl+C。
+适合已使用 AI 编程工具的学生和个人开发者。桌宠是入口，任务管理与可恢复执行是主要工作流。
 
-新机器先在根目录和 `desktop` 目录分别安装依赖。若提示 Electron 未安装，在 `desktop` 目录执行 `npm.cmd rebuild electron`。桌面端详细说明见 `desktop/README.md`。
+## 第一次运行
 
-尚未配置 DeepSeek 时，可在设置中选择明确标注的演示模式体验流程；真实聊天需要填写个人 API Key。
-
-## 启动
-
-需要 Node.js 24 或更新版本。本机依赖已安装。
-
-```powershell
-cd 'C:\Users\chens\Desktop\桌面项目'
-npm.cmd start
-```
-
-也可以运行根目录的 `启动后端.cmd`。服务只监听 `127.0.0.1:4318`，健康检查为 `GET /health`。终端内按 Ctrl+C 正常停止时会取消本服务拥有的正在运行的任务。不要把服务端口发布到公网。
-
-新机器先执行 `npm.cmd ci`，再执行 `npm.cmd run check` 和 `npm.cmd run test:harness`。依赖版本由 `package-lock.json` 锁定；Harness SDK 固定为 `0.1.7-rc.2`。
-
-## 配置 DeepSeek
-
-尚未配置个人 DeepSeek API Key。没有 Key 时真实聊天返回 503，不会冒充模型回复。
-
-两种配置方式任选一种：
-
-1. 把 `.env.example` 复制为 `.env`，填写 `DEEPSEEK_API_KEY` 后启动服务。
-2. 启动服务后，在另一个 PowerShell 中执行 `./scripts/configure.ps1`，隐藏输入 API Key。脚本通过设置 API 保存凭据。
-
-环境变量优先于保存的凭据；使用 `.env` 后若要清除 Key，应同时清除 `.env` 中的值并重启。通过设置 API 传入空字符串只清除保存的 Key 和当前进程的 Key。
-
-默认管家模型为 `deepseek-flash`，可在设置中改为账户实际可用的模型 ID。默认 `runtime=deepseek` 直接连接 API，支持完整的管家工具循环和任务派发，减少本地运行时启动开销。`runtime=harness` 可选择 DeepSeek Harness SDK；`runtime=demo` 仅提供明确标注的离线演示回复。已有配置不会被默认值覆盖，可在设置中切换。
-
-`baseUrl=https://api.deepseek.com` 时：Harness 使用官方 `/anthropic` Messages 接口，直接 API 模式使用 `/chat/completions`。自定义地址在 Harness 模式必须是支持 Anthropic Messages 的根地址（自动追加 `/v1/messages`）；直接 API 模式必须是 Chat Completions 根地址。不要把两种协议混用。
-
-## 认证与前端交接
-
-首次启动生成 `.data/api-token`。除 `/health` 外，API 请求均需 `Authorization: Bearer <令牌>`。它是本地后端令牌，与 DeepSeek API Key 不同；不要把 DeepSeek Key 放进前端代码。
-
-前端开发从以下文件开始：
-
-- `docs/API.md`：接口、事件与对接顺序。
-- `docs/openapi.json`：OpenAPI 3.1 规范，亦可认证访问 `/api/v1/openapi.json`。
-- `shared/types.ts`：数据结构。
-- `docs/ARCHITECTURE.md`：后端边界与运行机制。
-- `docs/VERIFICATION.md`：实际验收结果和未验证项。
-
-默认允许来自 `http://127.0.0.1:5173` 和 `http://localhost:5173` 的开发前端。其他来源通过 `DAYU_CORS_ORIGINS` 显式配置。未来桌面壳应从本机令牌文件读取令牌并通过受控 IPC 提供给渲染层，不应把令牌提交到仓库。
-
-## 已实现
-
-- ZCode 已作为第三个真实执行器接入任务队列、设置和新建任务界面，支持取消、超时和结果校验。使用方式和限制见 `docs/ZCODE.md`。
-
-- 真实 Harness SDK 子进程 + 自定义管家工具插件，管家不加载 shell 工具。
-- DeepSeek 对话、任务委派、任务查询/取消、显式偏好记忆。
-- Codex / Claude Code 本地 CLI 适配，模型通过参数选择，未指定时沿用执行器默认。
-- 单工作队列、任务重试、跟进任务、取消、超时、重启后的中断标记。
-- SQLite 持久化消息、任务、设置、偏好与事件；同数据目录单实例锁。
-- 任务完成通知、SSE 回放、前端状态快照、宠物状态事件。
-- 请求校验、来源校验、Bearer 鉴权、日志脱敏、幂等创建任务。
-
-工作目录默认是本项目下 `projects/`，可通过设置修改为真正的目标项目。模型工具不能任意选择配置目录以外的工作目录。
-
-## 执行权限与第一版边界
-
-Codex 使用 `workspace-write` 沙箱且不绕过审批；无法自动执行的动作应报错。Claude Code 使用 `dontAsk`，自动允许 Read/Edit/Write/Glob/Grep，不自动放开 Bash。实际权限不足将记录为失败，不伪装成功；这意味着部分需要执行命令的 Claude 任务暂不能全自动完成。
-
-任务目录校验用于限制调度目标，并不能代替操作系统沙箱。Claude 的文件访问边界仍受其自身权限实现约束。项目代码和已配置的 CLI 扩展应视为可信本地内容。
-
-`succeeded` 的含义是执行器以成功结果结束，不是后端对所有业务成果做了独立验收。结果字段会保存执行器报告。程序不自动发布、推送或联系他人。
-
-目前只维护一条管家对话；Harness 常驻并复用会话，每 24 个成功轮次用近期历史切换新会话，正常对话不重新启动运行进程。完整本地消息保留在数据库。暂未实现多会话界面、复杂自动选模型、费用估算、工具级权限审批或语音。补充任务会新建后续工作，不会假称已实时注入正在运行的 CLI。v0.2.0 的文件变更清单来自检查点扫描，不是独立的业务结果验收。
-
-正常关闭会终止本服务拥有的子进程；断电或强制杀进程后，遗留执行器是否还在运行需检查，系统只将原任务标记为中断，不会自动重跑该任务。
-
-## 开发与验证
+需要 Windows、Git、Node.js 24 和 npm。下载或克隆仓库后，在**仓库根目录**打开 PowerShell：
 
 ```powershell
-npm.cmd run check         # TypeScript 检查 + 自动化测试，不调用付费模型
-npm.cmd run test:harness  # 真实 Harness 握手，不发送模型请求
-npm.cmd run test:live     # 真实执行器联通测试，会调用各自配置的模型
-npm.cmd run docs          # 导出 OpenAPI
+npm ci
+npm --prefix desktop ci
+npm run check
+npm --prefix desktop run check
+npm start
 ```
 
-`work/` 保存测试临时目录，`.data/` 保存运行数据与敏感配置，均已忽略。请保管整个 `.data/`：凭据在本地文件中保存，并非操作系统凭据保险库。后续发布版本应迁移到系统凭据存储。
+保持后端终端运行，在第二个终端的仓库根目录执行：
+
+```powershell
+npm --prefix desktop start
+```
+
+Electron 二进制缺失时执行 `npm --prefix desktop rebuild electron` 后重试。依赖下载需要联网。
+
+**不花模型额度试用：** 双击角色打开面板，在设置中选择“演示”并保存。到任务页新建任务，执行器选择“演示”，填写“验证队列”。结束后应看到结果，但不会修改项目或调用模型。退出重开后，任务记录应仍存在。
+
+**开始真实工作：** 设置中填写自己的 DeepSeek API Key，选择“直连管家”，指定测试项目目录，并选择已安装、登录的执行器。只需安装你要用的执行器。先尝试“只阅读项目并简短说明结构，不修改文件”。
+
+本地检查只证明配置或程序路径可用，不代表账号、额度和权限通过。模型与执行器费用由各自服务收取。
+
+## 出错时
+
+| 现象 | 下一步 |
+| --- | --- |
+| 模型请求失败 | 检查 Key、地址、模型 ID 和额度；不要把 Key 发到 Issue |
+| 找不到执行器 | 安装并登录 CLI，或设置程序绝对路径 |
+| Claude permission denied | 查看日志里的权限模式和被拒工具，检查 CLI/项目/组织策略 |
+| 任务失败或中断 | 处理错误后点“继续任务”；会话不可用时选“从文件继续” |
+| 桌宠看不到 | 单击托盘图标召回，检查置顶开关；专注模式不取消桌宠置顶 |
+
+继续任务保留原 ID、产物和失败历史，不保证外部操作可幂等重放。文件恢复生成副本，不覆盖项目。详见[任务续做](docs/task-resume.md)。
+
+## 权限、数据与限制
+
+- 默认 API 直连，Harness 可选；两者均可派发任务，演示模式不调用模型。
+- Claude 默认仅允许文件工具；完全访问需显式开启，仍可能受 CLI 或组织策略限制。目录校验不是操作系统沙箱。
+- 成功状态表示执行器报告成功并正常退出，不是独立证明业务目标完成。
+- 同时只执行一个任务，只有一条管家对话。尚无日程、语音、逐字流式回复或费用预算功能。
+- 凭据暂存在本地文件，尚未迁移到系统凭据保险库。聊天、检查点和任务结果也可能含私人数据。
+- 开发数据在 `.data/`；安装版数据在 `%APPDATA%/dayu-desktop-pet/`。不要上传。开发版前后端分别退出；安装版退出会停止自己管理的后端和任务。
+- Windows 是当前验证平台；浏览器预览不能代替原生窗口验收。签名、包体和稳定分发仍需完善。
+
+## 开发与验收
+
+```powershell
+npm run check
+npm run check:repository
+npm --prefix desktop run check
+npm --prefix desktop run test:desktop
+npm run docs
+```
+
+Windows CI 从锁文件安装依赖并运行隔离验收；首次推送后才会实际运行 GitHub Actions。实时模型测试不属于 CI，手动运行会消耗服务额度。
+
+[架构](docs/ARCHITECTURE.md) · [OpenAPI](docs/openapi.json) · [前端开发](desktop/README.md) · [发布门槛](docs/PUBLIC-PREVIEW.md) · [版本记录](CHANGELOG.md) · [贡献指南](CONTRIBUTING.md)
+
+## 许可与素材
+
+项目整体许可证尚待作者确认，目前未授予整体开源许可。第三方素材许可不等于本项目许可。[素材来源](desktop/assets/CREDITS.md) 已单独记录。本项目为非官方爱好者作品，与 DeepSeek 无关联。

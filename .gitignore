@@ -5,6 +5,13 @@ desktop/package-resources/
 desktop/release/
 .data/
 .env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+secrets.json
+api-token
 test-results/
 playwright-report/
 *.log

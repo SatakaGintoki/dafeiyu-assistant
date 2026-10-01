@@ -1,9 +1,10 @@
 // Run with Electron after building. Uses isolated preferences and never sends model requests.
 const { app, BrowserWindow } = require('electron');
 const { join, resolve } = require('node:path');
-const { mkdirSync, mkdtempSync, writeFileSync } = require('node:fs');
+const { mkdirSync, mkdtempSync, writeFileSync, readFileSync } = require('node:fs');
 const assert = require('node:assert/strict');
 const desktop = resolve(__dirname, '..');
+const version = JSON.parse(readFileSync(join(desktop,'package.json'),'utf8')).version;
 const work = join(desktop, '../work');
 mkdirSync(work, { recursive: true });
 const output = mkdtempSync(join(work, 'desktop-smoke-'));
@@ -60,7 +61,7 @@ app.whenReady().then(async () => {
       await panel.webContents.executeJavaScript("window.dayu.panel.open('settings')");
       await pause(900);
       const settingsText=await panel.webContents.executeJavaScript('document.body.innerText');
-      for(const label of ['使用检查 · v0.2.0','我的项目','管理项目（1）','管理模板（1）'])assert.ok(settingsText.includes(label),label);
+      for(const label of [`使用检查 · v${version}`,'我的项目','管理项目（1）','管理模板（1）'])assert.ok(settingsText.includes(label),label);
       writeFileSync(join(output,'settings.png'),(await panel.webContents.capturePage()).toPNG());
       await panel.webContents.executeJavaScript("window.dayu.panel.open('tasks')");await pause(400);
       await panel.webContents.executeJavaScript("document.querySelector('[aria-label=\"新任务\"]').click()");await pause(600);
@@ -83,9 +84,11 @@ app.whenReady().then(async () => {
     }
     assert.deepEqual(errors, []);
     console.log(`Desktop smoke passed. Screenshots: ${output}`);
+    writeFileSync(join(output,'result.json'),JSON.stringify({ok:true,version}));
     clearTimeout(timeout);
     app.quit();
   } catch (error) {
+    writeFileSync(join(output,'result.json'),JSON.stringify({ok:false,error:String(error)}));
     console.error(error);
     clearTimeout(timeout);
     process.exitCode = 1;

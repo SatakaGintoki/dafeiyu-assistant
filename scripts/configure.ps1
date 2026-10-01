@@ -1,5 +1,5 @@
 param(
-  [ValidateSet('harness','deepseek','demo')][string]$Runtime = 'harness',
+  [ValidateSet('harness','deepseek','demo')][string]$Runtime = 'deepseek',
   [string]$Model = 'deepseek-flash',
   [string]$BaseUrl = 'https://api.deepseek.com',
   [string]$Workspace = '',

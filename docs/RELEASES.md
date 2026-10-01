@@ -1,6 +1,8 @@
 # 版本管理与回退
 
-仓库为本机 Git 仓库，不自动推送远端。`v0.1.0` 保留接入 Git 前的代码基线；`release/v0.2.0` 是本次开发分支，验证后的代码用 `v0.2.0` 标记。提交身份为本地项目身份 `Dafeiyu Local <dafeiyu@localhost>`，不冒用个人作者。
+仓库为本机 Git 仓库，不自动推送远端。`v0.1.0` 保留接入 Git 前的代码基线；`release/v0.2.0` 是历史分支名称，不代表当前版本。当前桌面版本为 `v0.2.8`，发布准备文档与测试更新可在其后单独提交。
+
+尚无公开稳定版分发。本机安装目录部署成功不等于 NSIS 安装包构建成功；近期 NSIS 构建曾失败，不应上传中间 EXE。公开前按 `PUBLIC-PREVIEW.md` 逐项验收。
 
 版本来源：根目录和 desktop 的 package.json / package-lock.json，以及 `shared/version.ts`；发布前保持一致。更新说明在根目录 `CHANGELOG.md`。
 

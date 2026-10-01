@@ -6,10 +6,10 @@ Electron + React 桌宠前端（desktop/）
 Express API ─── SQLite Store（消息、任务、偏好、事件）
     │
 管家 Runtime 接口
-    ├── HarnessRuntime（默认，官方 SDK 子进程）
+    ├── HarnessRuntime（可选，官方 SDK 子进程）
     │     └── 自定义 dayu-butler-tools 插件
     │            └── 本机 internal/tool（独立临时令牌）
-    ├── DirectRuntime（显式选择的 DeepSeek Chat Completions 工具循环）
+    ├── DirectRuntime（默认，DeepSeek Chat Completions 工具循环）
     └── DemoRuntime（显式离线说明）
                   │
               ButlerTools
@@ -17,12 +17,13 @@ Express API ─── SQLite Store（消息、任务、偏好、事件）
              TaskManager（单任务并发）
                   ├── Codex CLI
                   ├── Claude Code CLI
+                  ├── ZCode
                   └── Demo executor
 ```
 
 ## Harness 集成
 
-使用官方 `@deepseek-ai/dsh-sdk-client@0.1.7-rc.2`，首次对话启动本地 SDK runtime，正常回复后保留进程和会话，后续轮次复用。使用 sdk-minimal 模板，在本服务数据目录生成覆盖配置：禁用 Windows/Linux shell 工具及其终端栈，安装自己的六个管家工具。实际测试会检查模型收到的工具名单，防止模板升级时无意引入 shell。
+使用官方 `@deepseek-ai/dsh-sdk-client@0.1.7-rc.2`，首次对话启动本地 SDK runtime，正常回复后保留进程和会话，后续轮次复用。使用 sdk-minimal 模板，在本服务数据目录生成覆盖配置：禁用 Windows/Linux shell 工具及其终端栈，安装七个管家工具（包括 resume_task）。实际测试检查模型收到的工具名单。
 
 运行数据隔离在 `.data/harness`，不复用或修改用户全局 DSH_HOME。子进程只继承必要的系统环境、显式 DeepSeek 凭据和插件回连信息。默认使用 DeepSeek 官方 Messages 接口；不存在对本服务的 Codex/Claude 凭据转发。
 
@@ -38,7 +39,7 @@ CLI stdout 通过 StringDecoder 和有长度限制的 NDJSON 解码器解析。�
 
 取消、任务超时及正常服务关闭会终止服务拥有的进程树。重启后不会重跑遗留 running/cancelling 任务，它们变成 interrupted。强杀/断电后可能遗留外部进程，需先确认；当前不声称提供操作系统级的崩溃进程回收。
 
-followup 新建带原任务摘要的排队工作，不依赖 CLI 会话恢复，也不假装热更新运行中的任务。将来可单独替换为 SDK 级交互执行器，API 仍可保持稳定。
+resume 在原任务 ID 上继续未完成工作，Claude 优先使用保存的会话 ID，其他情况根据文件和记录续做。followup 仍创建带摘要的新任务；两者均不是运行中注入指令。详见 task-resume.md。
 
 ## 一致性与存储
 

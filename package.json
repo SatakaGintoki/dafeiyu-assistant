@@ -5,6 +5,7 @@
   "type": "module",
   "description": "大肥鱼 · DeepSeek 桌面管家",
   "scripts": {
+    "check:repository": "node scripts/check-repository.mjs",
     "dev": "tsx watch server/index.ts",
     "build": "tsc --noEmit",
     "start": "tsx server/index.ts",
