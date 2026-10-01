@@ -89,7 +89,7 @@ jobs:
             const crypto = require('crypto');
             const tag = process.env.RELEASE_TAG;
             const version = tag.slice(1);
-            const body = `Windows x64 早期预览版。下载 Dafeiyu-${version}-windows-x64.zip，完整解压后运行“大肥鱼管家.exe”。自带后端和 Node.js。\n\n包含短对话、任务派发、中断续做、Claude 会话恢复、桌宠置顶和托盘召回。可先用演示模式；真实使用需个人模型凭据及已登录的执行器。\n\n按版本标签在 GitHub Windows 环境构建，自动测试、安装目录启动验证与 ZIP 校验通过。校验值见 SHA256SUMS.txt，构建信息见 release-${version}.json。\n\n**限制：未签名的程序压缩包，不是安装器或稳定版。** 不要关闭系统保护。凭据暂存本地文件，数据位于 %APPDATA%/dayu-desktop-pet/；升级前结束任务并退出旧版。权限拒绝需处理实际 CLI/项目策略，任务成功不等于独立业务验收。项目整体许可证尚未选定，第三方许可随包保留。`;
+            const body = `Windows x64 早期预览版。下载 Dafeiyu-${version}-windows-x64.zip，完整解压后运行“大肥鱼管家.exe”。自带后端和 Node.js。\n\n包含通用事务本（项目、待办、日程、笔记）、学习/工作计划草案确认、重复日程、时区、桌面提醒、免打扰与稍后提醒，以及短对话、任务派发、中断续做、Claude 会话恢复、桌宠置顶和托盘召回。可先用演示模式；真实使用需个人模型凭据及已登录的执行器。\n\n按版本标签在 GitHub Windows 环境构建，自动测试、安装目录启动验证与 ZIP 校验通过。校验值见 SHA256SUMS.txt，构建信息见 release-${version}.json。\n\n**限制：未签名的程序压缩包，不是安装器或稳定版。** 不要关闭系统保护。凭据暂存本地文件，数据位于 %APPDATA%/dayu-desktop-pet/；升级前结束任务并退出旧版。权限拒绝需处理实际 CLI/项目策略，任务成功不等于独立业务验收。项目整体许可证尚未选定，第三方许可随包保留。`;
             const existing = (await github.rest.repos.listReleases({...context.repo, per_page:100})).data.find(r=>r.tag_name===tag);
             if(existing && !existing.draft) throw new Error('Release already public; refusing to replace assets');
             const release = existing || (await github.rest.repos.createRelease({...context.repo, tag_name:tag, name:`大肥鱼管家 ${tag} · Windows 预览版`, body, draft:true, prerelease:true})).data;

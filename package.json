@@ -1,6 +1,6 @@
 {
   "name": "dayu-desktop-agent",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "private": true,
   "type": "module",
   "description": "大肥鱼 · DeepSeek 桌面管家",
