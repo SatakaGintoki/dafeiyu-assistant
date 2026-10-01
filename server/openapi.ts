@@ -1,5 +1,6 @@
 import { APP_VERSION } from '../shared/version';
 import { workflowPaths,workflowSchemas } from './workflow-openapi';
+import { agendaPaths,agendaSchemas } from './agenda-openapi';
 const ref=(name:string)=>({$ref:`#/components/schemas/${name}`});
 const json=(schema:unknown)=>({'application/json':{schema}});
 const response=(description:string,schema?:unknown)=>({description,...(schema?{content:json(schema)}:{})});
@@ -13,6 +14,7 @@ export const openApiDocument={
   openapi:'3.1.0',info:{title:'大肥鱼管家后端',version:APP_VERSION,description:'独立本地后端。通过 Bearer Token 认证；SSE 使用 fetch 流。CLI 运行成功表示执行器已结束，不等于独立验证业务目标。'},
   servers:[{url:'http://127.0.0.1:4318'}],security:[{bearerAuth:[]}],
   paths:{
+    ...agendaPaths,
     ...workflowPaths,
     '/health':{get:{summary:'公开的存活检查',security:[],responses:{'200':response('服务存活',{type:'object',properties:{ok:{type:'boolean'},service:string,version:string}})}}},
     '/api/v1/state':{get:{summary:'获取前端完整快照（最近 200 条消息/任务）',responses:{'200':response('当前状态',ref('State')),...errorResponses}}},
@@ -39,6 +41,7 @@ export const openApiDocument={
     '/api/v1/openapi.json':{get:{summary:'此接口规范',responses:{'200':response('OpenAPI 3.1 文档',{type:'object'}),...errorResponses}}},
   },
   components:{securitySchemes:{bearerAuth:{type:'http',scheme:'bearer'}},schemas:{
+    ...agendaSchemas,
     ...workflowSchemas,
     Executor:{type:'string',enum:['codex','claude','zcode','demo']},
     TaskStatus:{type:'string',enum:['queued','running','cancelling','succeeded','failed','cancelled','interrupted']},

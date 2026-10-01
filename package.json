@@ -19,8 +19,10 @@
   "dependencies": {
     "@deepseek-ai/dsh-sdk-client": "0.1.7-rc.2",
     "@deepseek-ai/dsh-tools": "0.1.7-rc.2",
+    "@js-temporal/polyfill": "^0.5.1",
     "express": "^5.1.0",
-    "zod": "^3.24.0"
+    "zod": "^3.24.0",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",

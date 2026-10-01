@@ -12,6 +12,8 @@ import { HarnessRuntime, DirectRuntime, DemoRuntime, type Runtime } from './runt
 import { openApiDocument } from './openapi';
 import { APP_VERSION } from '../shared/version';
 import { addWorkflows } from './workflows';
+import { AgendaService } from './agenda';
+import { addAgendaRoutes } from './agenda-routes';
 
 export interface AppOptions { root:string; dataDir?:string; token?:string; runner?:Runner; runtimeFactory?:(config:Config,store:Store,tools:ButlerTools)=>Runtime; origins?:string[] }
 function authorized(req:Request,token:string) { const given=req.headers.authorization?.replace(/^Bearer /,'') || ''; const a=Buffer.from(given),b=Buffer.from(token);return a.length===b.length && timingSafeEqual(a,b); }
@@ -38,7 +40,8 @@ export function createApp(options:AppOptions) {
     return event;
   };
   const tasks=new TaskManager(store,config,options.runner || new CliRunner(config),emit);
-  const tools=new ButlerTools(tasks,store,config);
+  const agenda=new AgendaService(store,emit);
+  const tools=new ButlerTools(tasks,store,config,agenda);
   const app=express(); app.disable('x-powered-by');
   const origins=new Set(options.origins || ['http://127.0.0.1:5173','http://localhost:5173']);
   app.use((req,res,next)=>{
@@ -63,6 +66,7 @@ export function createApp(options:AppOptions) {
     next();
   });
   app.use(express.json({limit:'128kb'}));
+  addAgendaRoutes(app,agenda);
   addWorkflows(app,store,config,tasks,()=>busy,async()=>{await runtime?.close();runtime=undefined;emit('settings.updated',config.value);});
   app.get('/api/v1/state',(_req,res)=>res.json({messages:store.messages().slice(-200),tasks:store.tasks().slice(-200),settings:config.value,executors:executorCatalog(config),busy,petState}));
   app.get('/api/v1/settings',(_req,res)=>res.json(config.value));
@@ -139,7 +143,7 @@ export function createApp(options:AppOptions) {
     const message=error instanceof ZodError?'请求参数不符合接口要求：'+error.issues.map(i=>`${i.path.join('.')}: ${i.message}`).join(';'):error instanceof SyntaxError?'JSON 请求格式无效':status===500?'内部服务错误，请检查本地日志':error.message;
     res.status(status).json({error:config.redact(message)});
   });
-  return {app,store,config,tasks,token,emit,start:()=>tasks.pump(),setInternalUrl:(url:string)=>{internalUrl=url;},async close(){
-    shuttingDown=true;chatController?.abort(new Error('服务关闭'));await runtime?.close();await chatWork;await tasks.close();for(const client of clients)client.end();clients.clear();store.close();
+  return {app,store,config,tasks,agenda,token,emit,start:()=>{agenda.start();tasks.pump();},setInternalUrl:(url:string)=>{internalUrl=url;},async close(){
+    shuttingDown=true;agenda.close();chatController?.abort(new Error('服务关闭'));await runtime?.close();await chatWork;await tasks.close();for(const client of clients)client.end();clients.clear();store.close();
   }};
 }

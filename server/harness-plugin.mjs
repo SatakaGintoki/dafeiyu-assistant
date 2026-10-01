@@ -1,8 +1,10 @@
 import { defineTool } from '@deepseek-ai/dsh-tools';
+import agendaDefinitions from './agenda-tool-definitions.json' with { type: 'json' };
 
 export const name = 'dayu-butler-tools';
 export const inject = ['tools'];
 const definitions = [
+  ...agendaDefinitions.map(d=>({...d,parameters:Object.fromEntries(Object.entries(d.parameters.properties).map(([k,v])=>[k,{...v,...(d.parameters.required.includes(k)?{required:true}:{})}]))})),
   {name:'get_runtime_status',description:'Read current app version, executor discovery and Claude full-access setting. Historical failures are not current availability; discovery does not verify cloud connectivity.',parameters:{}},
   {name:'dispatch_task',description:'Only when the user explicitly requests execution, delegate a background task and immediately return its ID. Never claim it is already done.',parameters:{title:{type:'string',required:true},instruction:{type:'string',required:true},executor:{type:'string'},model:{type:'string'}}},
   {name:'list_tasks',description:'List real task states.',parameters:{}},

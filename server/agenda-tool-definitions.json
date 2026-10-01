@@ -1,0 +1,12 @@
+[
+  {
+    "name":"query_agenda",
+    "description":"查询事务本真实记录，不是编码任务。snapshot 返回通用项目、待办/日程/笔记、计划草案、待处理提醒、时区、免打扰和当前时间。calendar 用带时区偏移的 ISO from/to 展开重复日程（最多366天）。操作前查询 ID 与最新 revision，不能凭聊天记忆汇报完成状态。",
+    "parameters":{"type":"object","properties":{"view":{"type":"string","enum":["snapshot","calendar"]},"from":{"type":"string"},"to":{"type":"string"},"projectId":{"type":"string"}},"required":["view"],"additionalProperties":false}
+  },
+  {
+    "name":"manage_agenda",
+    "description":"仅按用户要求管理通用项目与日常事务，不派发编码任务。payload 是 JSON 字符串。project.create:{name,description?}; project.update:{id,revision,name?,description?,archived?}。item.create:{title,kind:todo|event|note,projectId?:UUID|null,notes?,timezone?:IANA,dueAt?:ISO|null,startsAt?:ISO|null,endsAt?:ISO|null,reminderAt?:ISO|null,reminderMinutesBefore?:整数|null,recurrence?:{frequency:daily|weekly,interval?:1..52,weekdays?:1..7数组(周一=1),until?:YYYY-MM-DD,exceptions?:日期数组}|null}；item.update 为 id+revision+待改字段，也可 status:open|done|cancelled。所有时间必须带时区偏移；不明确的提醒时间先询问。event 必须有 startsAt/endsAt，todo 使用 dueAt，note 只有文字；重复仅支持 event 并使用提前分钟提醒；reminderAt 与 reminderMinutesBefore 二选一。plan.create:{title,projectId?,notes?,timezone?,steps:[{title,notes?,dueAt?,reminderAt?}]} 只保存草案，只有用户要求制定计划才使用；plan.update:{id,revision,...待改字段}；用户明确确认后才 plan.accept:{id,revision}，原子创建待办；放弃草案用 plan.cancel:{id,revision}。notification.action:{id,revision,action:acknowledge|snooze,until?:ISO}，确认提醒不代表事务完成。preferences.update:{timezone,quietStart:HH:mm|null,quietEnd:HH:mm|null}。成功返回后才能声称保存/修改成功。归档暂停项目提醒，完成或取消待办取消提醒。",
+    "parameters":{"type":"object","properties":{"operation":{"type":"string","enum":["project.create","project.update","item.create","item.update","plan.create","plan.update","plan.accept","plan.cancel","notification.action","preferences.update"]},"payload":{"type":"string"}},"required":["operation","payload"],"additionalProperties":false}
+  }
+]

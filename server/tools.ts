@@ -3,8 +3,11 @@ import { ApiError, Config } from './config';
 import { TaskManager } from './tasks';
 import type { Store } from './store';
 import { runtimeStatus } from './runtime-status';
+import { AgendaService } from './agenda';
+import agendaDefinitions from './agenda-tool-definitions.json';
 
 export const toolDefinitions = [
+  ...agendaDefinitions,
   {name:'get_runtime_status',description:'查看当前程序版本、执行器发现结果和 Claude 完全访问设置。历史失败不代表当前不可用；发现程序不代表云端调用成功。',parameters:{type:'object',properties:{},additionalProperties:false}},
   {name:'dispatch_task',description:'用户明确要求执行工作时创建后台任务，立即返回任务 ID。纯讨论或设计咨询不创建任务。',parameters:{type:'object',properties:{title:{type:'string'},instruction:{type:'string'},executor:{type:'string',enum:['codex','claude','zcode','demo']},model:{type:'string'}},required:['title','instruction'],additionalProperties:false}},
   {name:'list_tasks',description:'查看最近任务的真实状态。',parameters:{type:'object',properties:{},additionalProperties:false}},
@@ -15,9 +18,19 @@ export const toolDefinitions = [
 ] as const;
 
 export class ButlerTools {
-  constructor(private tasks:TaskManager, private store:Store,private config:Config){}
+  private agenda:AgendaService;
+  constructor(private tasks:TaskManager, private store:Store,private config:Config,agenda?:AgendaService){this.agenda=agenda||new AgendaService(store,()=>{});}
   async execute(name:string,args:unknown,callId?:string):Promise<unknown> {
     switch(name){
+      case 'query_agenda': {
+        const q=z.object({view:z.enum(['snapshot','calendar']),from:z.string().optional(),to:z.string().optional(),projectId:z.string().uuid().optional()}).strict().parse(args);
+        if(q.view==='snapshot'){if(q.from||q.to||q.projectId)throw new ApiError(400,'snapshot 不接受筛选参数');return this.agenda.snapshot();}
+        if(!q.from||!q.to)throw new ApiError(400,'calendar 需要 from 和 to');return this.agenda.calendar(q.from,q.to,q.projectId);
+      }
+      case 'manage_agenda': {
+        const data=z.object({operation:z.string(),payload:z.string().max(64000)}).strict().parse(args);
+        return this.agenda.mutate(data.operation,JSON.parse(data.payload),callId?`tool:${callId}`:undefined);
+      }
       case 'get_runtime_status': z.object({}).strict().parse(args); return runtimeStatus(this.config);
       case 'dispatch_task': return this.tasks.create(args,callId ? `tool:${callId}` : undefined);
       case 'list_tasks': z.object({}).strict().parse(args); return this.store.tasks().slice(-20).map(({logs,...task})=>task);
