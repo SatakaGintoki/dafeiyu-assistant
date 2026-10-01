@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "大肥鱼管家后端",
-    "version": "0.2.9",
+    "version": "0.2.10",
     "description": "独立本地后端。通过 Bearer Token 认证；SSE 使用 fetch 流。CLI 运行成功表示执行器已结束，不等于独立验证业务目标。"
   },
   "servers": [
