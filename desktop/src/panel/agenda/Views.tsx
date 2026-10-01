@@ -10,9 +10,9 @@ type Open = (item: AgendaItem) => void;
 const byDue = (a: AgendaItem, b: AgendaItem) => (a.dueAt ?? '').localeCompare(b.dueAt ?? '');
 
 /** Open todos whose due instant falls in [from, to). Todos and event occurrences are listed separately. */
-function dueIn(snapshot: AgendaSnapshot, from: string, to: string) {
+export function dueIn(snapshot: AgendaSnapshot, from: string, to: string) {
   const archived = new Set(snapshot.projects.filter(p => p.archived).map(p => p.id));
-  return snapshot.items.filter(i => i.kind === 'todo' && i.status === 'open' && i.dueAt && i.dueAt >= from && i.dueAt < to && !(i.projectId && archived.has(i.projectId))).sort(byDue);
+  return snapshot.items.filter(i => i.kind === 'todo' && i.status === 'open' && i.dueAt && Date.parse(i.dueAt) >= Date.parse(from) && Date.parse(i.dueAt) < Date.parse(to) && !(i.projectId && archived.has(i.projectId))).sort(byDue);
 }
 
 function occurrenceWhen(o: AgendaOccurrence, item: AgendaItem, viewer: string) {
@@ -41,7 +41,7 @@ export function TodayView({ snapshot, now, onOpen }: { snapshot: AgendaSnapshot;
   const { from, to } = useMemo(() => dayRange(today, tz), [today, tz]);
   const { occurrences, error, loading } = useCalendar(agenda, store.api.agenda, from, to);
   const archived = new Set(snapshot.projects.filter(p => p.archived).map(p => p.id));
-  const overdue = snapshot.items.filter(i => i.kind === 'todo' && i.status === 'open' && i.dueAt && i.dueAt < from && !(i.projectId && archived.has(i.projectId))).sort(byDue);
+  const overdue = snapshot.items.filter(i => i.kind === 'todo' && i.status === 'open' && i.dueAt && Date.parse(i.dueAt) < Date.parse(from) && !(i.projectId && archived.has(i.projectId))).sort(byDue);
   const due = dueIn(snapshot, from, to);
   const doneToday = snapshot.items.filter(i => i.kind === 'todo' && i.status === 'done' && i.updatedAt >= from && i.updatedAt < to);
   const empty = !overdue.length && !due.length && !occurrences?.length;
@@ -84,7 +84,7 @@ export function WeekView({ snapshot, now, onOpen }: { snapshot: AgendaSnapshot; 
       <CalendarState error={error} loading={loading} />
       {days.map(day => {
         // Occurrences spanning midnight are listed on the day they start.
-        const occ = (occurrences ?? []).filter(o => localDate(o.startsAt, tz) === day || (day === start && o.startsAt < from));
+        const occ = (occurrences ?? []).filter(o => localDate(o.startsAt, tz) === day || (day === start && Date.parse(o.startsAt) < Date.parse(from)));
         const todos = due.filter(i => localDate(i.dueAt!, tz) === day);
         return (
           <section key={day} className={`ag-section ag-weekday ${day === today ? 'today' : ''}`}>

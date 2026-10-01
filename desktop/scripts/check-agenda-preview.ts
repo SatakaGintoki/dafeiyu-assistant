@@ -100,6 +100,7 @@ try {
   todo = mutate<AgendaItem>('item.update', { id: todo.id, revision: todo.revision, reminderAt: iso(now + 7200e3) });
   await panel.locator('.ag-reminder', { hasText: '整理首页文案' }).waitFor({ state: 'detached' });
   assert.equal(snap().notifications.length, 0);
+  await popup.waitFor({ state: 'detached' });
   step('reminder popup + inbox card; rescheduling withdraws the old reminder');
 
   // 3. "知道了" doesn't complete; reload doesn't pop again.

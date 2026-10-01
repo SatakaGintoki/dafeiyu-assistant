@@ -4713,6 +4713,10 @@
             "type": "string",
             "format": "date-time"
           },
+          "deliveryGeneration": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          },
           "itemId": {
             "type": "string",
             "format": "uuid"

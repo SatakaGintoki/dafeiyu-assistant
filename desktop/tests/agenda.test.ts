@@ -149,3 +149,31 @@ test('agenda store run(): 409 re-reads before surfacing, success upserts server 
   await store.run('items', async () => ({ id: 'x', revision: 1 }) as AgendaItem);
   assert.equal(store.item('x')?.revision, 2);
 });
+
+
+test('durable activation survives a missed snooze snapshot and legacy shown logs', () => {
+  const initial = note('wake', 'pending', { deliveryGeneration: 1 });
+  const log = deliverReminders([initial], {}, false).log;
+  const restored = JSON.parse(JSON.stringify(log));
+  const awakened = { ...initial, deliveryGeneration: 2, revision: 3 };
+  const result = deliverReminders([awakened], restored, false);
+  assert.equal(result.show.length, 1);
+  assert.equal(deliverReminders([{ ...awakened, revision: 4, title: 'edited' }], result.log, false).show.length, 0);
+  assert.equal(deliverReminders([initial], { wake: 'pending' }, false).show.length, 0);
+  assert.equal(deliverReminders([awakened], { wake: 'pending' }, false).show.length, 1);
+  const quiet = deliverReminders([awakened], log, true);
+  assert.equal(quiet.show.length, 0);
+  assert.equal(deliverReminders([awakened], quiet.log, false).show.length, 1);
+});
+
+test('today includes midnight with milliseconds and excludes the next midnight', async () => {
+  const { dueIn } = await import('../src/panel/agenda/Views');
+  const state = snapshot();
+  const range = dayRange('2026-10-02', 'Asia/Shanghai');
+  state.items = [
+    { id: 'start', kind: 'todo', status: 'open', projectId: null, dueAt: '2026-10-01T16:00:00.000Z' },
+    { id: 'end', kind: 'todo', status: 'open', projectId: null, dueAt: '2026-10-02T16:00:00.000Z' },
+    { id: 'offset', kind: 'todo', status: 'open', projectId: null, dueAt: '2026-10-02T00:00:00+08:00' },
+  ] as AgendaItem[];
+  assert.deepEqual(dueIn(state, range.from, range.to).map(i => i.id).sort(), ['offset', 'start']);
+});

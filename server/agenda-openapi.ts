@@ -7,7 +7,7 @@ export const agendaResponseSchemas={
   AgendaProject:s.createProject.extend({...stamp,archived:z.boolean()}),
   AgendaItem:s.createItem.extend({...stamp,timezone:s.timezone,status:z.enum(['open','done','cancelled']),planId:z.string().uuid().nullable()}),
   AgendaPlan:s.createPlan.extend({...stamp,timezone:s.timezone,status:z.enum(['draft','accepted','cancelled']),itemIds:z.array(z.string().uuid())}),
-  AgendaNotification:z.object({...stamp,itemId:z.string().uuid(),itemRevision:z.number().int().positive(),title:z.string(),scheduledAt:s.instant,occurrenceAt:s.instant.nullable(),status:z.enum(['pending','acknowledged','snoozed','cancelled']),snoozedUntil:s.instant.nullable()}).strict(),
+  AgendaNotification:z.object({...stamp,deliveryGeneration:z.number().int().positive().optional(),itemId:z.string().uuid(),itemRevision:z.number().int().positive(),title:z.string(),scheduledAt:s.instant,occurrenceAt:s.instant.nullable(),status:z.enum(['pending','acknowledged','snoozed','cancelled']),snoozedUntil:s.instant.nullable()}).strict(),
   AgendaPreferences:s.preferences,
   AgendaOccurrence:z.object({id:z.string(),itemId:z.string().uuid(),title:z.string(),projectId:z.string().uuid().nullable(),startsAt:s.instant,endsAt:s.instant,reminderAt:s.instant.nullable()}).strict(),
 };

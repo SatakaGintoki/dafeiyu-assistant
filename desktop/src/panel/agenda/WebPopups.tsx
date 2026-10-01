@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import type { AgendaNotification } from '../../../../shared/agenda';
 import { useApp } from '../../context';
+import { useAgenda } from '../../lib/agenda';
 
 /**
  * Browser preview stand-in for OS notifications: a short-lived popup over the fake desktop.
@@ -10,8 +11,16 @@ import { useApp } from '../../context';
 export function WebReminderPopups() {
   const { agenda, host } = useApp();
   const [list, setList] = useState<{ n: AgendaNotification; overflow: number }[]>([]);
+  const notifications = useAgenda(agenda, s => s.snapshot?.notifications);
+  useEffect(() => {
+    if (!notifications) return;
+    setList(old => old.flatMap(entry => {
+      const current = notifications.find(n => n.id === entry.n.id && n.status === 'pending');
+      return current ? [{ ...entry, n: current }] : [];
+    }));
+  }, [notifications]);
   useEffect(() => agenda.onReminders((shown, overflow) => {
-    setList(old => [...old, ...shown.map((n, i) => ({ n, overflow: i === shown.length - 1 ? overflow : 0 }))].slice(-3));
+    setList(old => [...old.filter(entry => !shown.some(n => n.id === entry.n.id)), ...shown.map((n, i) => ({ n, overflow: i === shown.length - 1 ? overflow : 0 }))].slice(-3));
   }), [agenda]);
   const close = (id: string) => setList(old => old.filter(x => x.n.id !== id));
   return (

@@ -88,7 +88,7 @@ app.whenReady().then(async () => {
       assert.ok(status.checkedAt, 'Main-process notifier never read the agenda inbox');
       assert.ok(status.shown >= 1 || status.error || !status.supported, 'Notifier neither showed nor reported a failure');
       const shownLog = JSON.parse(readFileSync(join(output, 'agenda-shown.json'), 'utf8'));
-      assert.equal(Object.values(shownLog).filter(v => v === 'pending').length, 1, 'Reminder recorded once');
+      assert.equal(Object.values(shownLog).filter(v => v === 1).length, 1, 'Reminder recorded once');
       writeFileSync(join(output, 'agenda.png'), (await panel.webContents.capturePage()).toPNG());
       console.log('Agenda IPC, reminder inbox and main-process notifier passed.');
     }

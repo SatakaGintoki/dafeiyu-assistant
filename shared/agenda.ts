@@ -20,6 +20,8 @@ export interface AgendaOccurrence {
   startsAt:string; endsAt:string; reminderAt:string|null;
 }
 export interface AgendaNotification {
+  /** Durable activation generation; legacy records default to 1. */
+  deliveryGeneration?:number;
   id:string; itemId:string; itemRevision:number; title:string;
   scheduledAt:string; occurrenceAt:string|null; createdAt:string;
   status:'pending'|'acknowledged'|'snoozed'|'cancelled'; snoozedUntil:string|null;

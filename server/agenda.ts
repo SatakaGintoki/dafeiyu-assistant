@@ -125,14 +125,14 @@ export class AgendaService {
         // Stable across title edits/reopening: an occurrence is delivered at most once.
         const key=`${item.id}:${at}`;
         if(this.store.get('agenda-reminder-fired',key))continue;
-        const notification:AgendaNotification={...this.stamp(),itemId:item.id,itemRevision:item.revision,title:item.title,scheduledAt:at,occurrenceAt,status:'pending',snoozedUntil:null};
+        const notification:AgendaNotification={...this.stamp(),itemId:item.id,itemRevision:item.revision,title:item.title,scheduledAt:at,occurrenceAt,deliveryGeneration:1,status:'pending',snoozedUntil:null};
         this.store.db.exec('BEGIN IMMEDIATE');
         try{this.save('notifications',notification);this.store.put('agenda-reminder-fired',key,{id:notification.id});this.store.db.exec('COMMIT');}catch(error){this.store.db.exec('ROLLBACK');throw error;}
         this.emit('agenda.reminder',notification);
       }
       for(const n of snapshot.notifications)if(n.status==='snoozed'&&Date.parse(n.snoozedUntil!)<=now){
         const item=this.get<AgendaItem>('items',n.itemId);if(item.status!=='open'||item.revision!==n.itemRevision||item.projectId&&projects.get(item.projectId)?.archived){this.cancelNotifications(item.id);continue;}
-        const next:AgendaNotification={...n,status:'pending',snoozedUntil:null,revision:n.revision+1,updatedAt:this.now()};this.save('notifications',next);this.emit('agenda.reminder',next);
+        const next:AgendaNotification={...n,deliveryGeneration:(n.deliveryGeneration??1)+1,status:'pending',snoozedUntil:null,revision:n.revision+1,updatedAt:this.now()};this.save('notifications',next);this.emit('agenda.reminder',next);
       }
       this.lastError=null;
     }catch{this.lastError='提醒检查失败，下一轮会重试';}

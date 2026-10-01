@@ -81,7 +81,7 @@ test('reminders survive restart, deliver once, snooze, acknowledge without compl
   let n=f.agenda.snapshot().notifications[0];assert.equal(f.events.filter(e=>e.type==='agenda.reminder').length,1);
   n=f.mutate('notification.action',{id:n.id,revision:n.revision,action:'snooze',until:'2026-10-01T08:05:00Z'});
   f.store.close();const reloaded=new Store(f.path);t.after(()=>reloaded.close());let now=Date.parse('2026-10-01T08:06:00Z');
-  const a=new AgendaService(reloaded,()=>{},()=>now);a.tick();n=a.snapshot().notifications[0];assert.equal(n.status,'pending');assert.equal(n.revision,3);
+  const a=new AgendaService(reloaded,()=>{},()=>now);a.tick();n=a.snapshot().notifications[0];assert.equal(n.status,'pending');assert.equal(n.revision,3);assert.equal(n.deliveryGeneration,2);
   a.mutate('notification.action',{id:n.id,revision:n.revision,action:'acknowledge'});a.tick();assert.equal(a.snapshot().notifications.length,0);
   assert.equal(a.get<AgendaItem>('items',item.id).status,'open');
 });

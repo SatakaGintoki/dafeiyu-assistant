@@ -119,7 +119,7 @@
 - 现有 `sync.required`：除原 `/state` 外，还要重新 GET `/api/v1/agenda`；刷新状态后统一处理 pending 提醒。新模块快照不会塞入旧 `/state`，保护现有前端兼容。
 - SSE 事件外层沿用 `{seq,type,data,at}`。保存 Last-Event-ID，但不能只依赖回放，因为旧事件可能已经被完成、改期或确认。
 
-前端处理提醒顺序：刷新快照 → 确认通知仍是 pending → 根据本地免打扰设置判断展示 → 用 notification.id 去重后显示系统通知/卡片。新通知第一次出现展示一次；snoozed 期间不展示，之后同 id 从 snoozed 转回 pending 时允许再次展示。仅 title/revision 变化不重新弹窗。保存本地展示记录，以免重连/窗口重建重复弹窗；多窗口应由一个 Electron 主进程负责系统通知。
+前端处理提醒顺序：刷新快照 → 确认通知仍是 pending → 根据本地免打扰设置判断展示 → 用 notification.id + deliveryGeneration 去重后显示系统通知/卡片。新通知第一次出现展示一次；snoozed 期间不展示，之后同 id 从 snoozed 转回 pending 时允许再次展示。仅 title/revision 变化不重新弹窗。保存本地展示记录，以免重连/窗口重建重复弹窗；多窗口应由一个 Electron 主进程负责系统通知。
 
 `acknowledge` 仅表示“知道了”，不完成事务。“完成”操作调用 item.update，“稍后提醒”调用 notification.action。按钮操作前取最新 revision；延后时间必须在未来 366 天内。
 
@@ -150,3 +150,6 @@ npm run docs
 开发前端时可以在 PowerShell 为独立服务设置 `DAYU_DATA_DIR` 为仓库 `work/agenda-preview` 的绝对路径，`DAYU_PORT=4329`，再运行 `npm run dev`。不要同时使用已安装 App 的数据目录。令牌取该隔离目录的 api-token，通过现有代理配置配对；禁止在代码、截图或提交中泄露。
 
 参考：Super Productivity 的任务与提醒分离、Khoj 的结构化自动化接口。本实现未复制两者源码。新增依赖为 Temporal 时区计算和 zod-to-json-schema 契约生成；FullCalendar 是后续前端的候选，不在本次安装范围。
+
+
+修复补充（2026-10-01）：AgendaNotification 新增可选 deliveryGeneration，旧记录缺失按 1 处理。新建提醒为 1，每次延后到期增加 1；标题修改、确认收到及普通 revision 变化不增加代次。客户端持久保存已显示的代次，兼容旧 pending 日志为第 1 代。日期比较使用时间戳，不按 ISO 字符串字典序比较。浏览器弹层应按最新 pending 集合更新/撤回，同 id 合并。
