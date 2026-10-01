@@ -59,9 +59,14 @@ app.whenReady().then(async () => {
       assert.equal((await call('POST','/api/v1/projects',{name:'界面测试项目',workspace:state.body.settings.workspace,executor:'demo',notes:'测试项目说明'})).status,201);
       assert.equal((await call('POST','/api/v1/templates',{name:'我的周报',instruction:'汇总本周工作，不修改原文件。'})).status,201);
       await panel.webContents.executeJavaScript("window.dayu.panel.open('settings')");
-      await pause(900);
-      const settingsText=await panel.webContents.executeJavaScript('document.body.innerText');
-      for(const label of [`使用检查 · v${version}`,'我的项目','管理项目（1）','管理模板（1）'])assert.ok(settingsText.includes(label),label);
+      const settingsLabels=[`使用检查 · v${version}`,'我的项目','管理项目（1）','管理模板（1）'];
+      let settingsText='';
+      for(let attempt=0;attempt<100;attempt++){
+        settingsText=await panel.webContents.executeJavaScript('document.body.innerText');
+        if(settingsLabels.every(label=>settingsText.includes(label)))break;
+        await pause(100);
+      }
+      for(const label of settingsLabels)assert.ok(settingsText.includes(label),label);
       writeFileSync(join(output,'settings.png'),(await panel.webContents.capturePage()).toPNG());
       await panel.webContents.executeJavaScript("window.dayu.panel.open('tasks')");await pause(400);
       await panel.webContents.executeJavaScript("document.querySelector('[aria-label=\"新任务\"]').click()");await pause(600);
