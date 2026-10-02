@@ -1,0 +1,92 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
+import { resolve, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { once } from 'node:events';
+import { createServer } from 'vite';
+import { createApp } from '../../server/app';
+import { DirectRuntime } from '../../server/runtime';
+
+const root = resolve(import.meta.dirname, '../..');
+mkdirSync(join(root, 'work'), { recursive: true });
+const output = mkdtempSync(join(root, 'work/markdown-preview-'));
+const dataDir = join(output, 'data');
+const prefix='## 交付文件\n\n**完成**，这里是 *说明*。\n\n';
+const rest=['| 文件 | 说明 |','|---|---|','| `rbtree.cpp` | **C++17** 红黑树 |','','> 引用说明','','- [x] 已验证','- [ ] 待验收','','```cpp','#include <iostream>','int main() { return 0; }','```','','[官网](https://example.com)','[危险链接](javascript:alert(1))','<script>window.__mdUnsafe=true</script>','![远程图片](https://example.com/track.png)'].join('\n');
+let complete: (()=>void)|undefined;
+const service = createApp({ root, dataDir, runtimeFactory:(config,store,tools)=>new DirectRuntime(config,store,tools,async(_url,init)=>{
+  assert.equal(JSON.parse(init!.body as string).stream,true);
+  const encoder=new TextEncoder();
+  return new Response(new ReadableStream({start(controller){
+    controller.enqueue(encoder.encode('data: '+JSON.stringify({choices:[{delta:{content:prefix}}]})+'\n\n'));
+    complete=()=>{controller.enqueue(encoder.encode('data: '+JSON.stringify({choices:[{delta:{content:rest},finish_reason:'stop'}]})+'\n\ndata: [DONE]\n\n'));controller.close();};
+  },cancel(){complete=undefined;}}),{headers:{'Content-Type':'text/event-stream'}});
+}) });
+service.config.update({ runtime: 'deepseek', apiKey:'isolated-test-only', defaultExecutor: 'demo' });
+const backend = service.app.listen(0, '127.0.0.1');
+await once(backend, 'listening');
+const url = `http://127.0.0.1:${(backend.address() as { port: number }).port}`;
+service.setInternalUrl(url);
+service.start();
+writeFileSync(join(dataDir, 'connection.json'), JSON.stringify({ url }));
+delete process.env.DAYU_API_TOKEN; delete process.env.DAYU_BACKEND_URL; delete process.env.DAYU_TOKEN_FILE;
+process.env.DAYU_DATA_DIR = dataDir;
+
+const tz = service.agenda.snapshot().preferences.timezone;
+let vite: Awaited<ReturnType<typeof createServer>> | undefined;
+let browser: any;
+const step = (text: string) => console.log(`✓ ${text}`);
+try {
+  const modulePath = process.env.PLAYWRIGHT_MODULE_PATH;
+  const { chromium } = await import(modulePath ? pathToFileURL(modulePath).href : 'playwright');
+  vite = await createServer({ root: join(root, 'desktop'), configFile: join(root, 'desktop/vite.config.ts'), server: { port: 0, strictPort: false } });
+  await vite.listen();
+  browser = await chromium.launch({ channel: process.env.PLAYWRIGHT_CHANNEL || 'chrome', headless: true });
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, timezoneId: tz });
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on('pageerror', (error: Error) => errors.push(error.message));
+  page.on('console', (msg: any) => { if (msg.type() === 'error' && !/Failed to load resource/.test(msg.text())) errors.push(msg.text()); });
+  page.on('dialog', (dialog: any) => void dialog.accept());
+
+  await page.emulateMedia({reducedMotion:'reduce'});
+  const remote:string[]=[];
+  page.on('request',(r:any)=>{if(r.url().startsWith('https://example.com'))remote.push(r.url());});
+  await page.goto(vite.resolvedUrls!.local[0]+'?panel=chat');
+  await page.locator('.composer textarea').fill('请展示 Markdown');
+  await page.locator('.composer textarea').press('Enter');
+  const live=page.locator('[aria-label="正在回复"]');
+  await live.locator('h2').filter({hasText:'交付文件'}).waitFor();
+  assert.equal(await live.locator('strong').innerText(),'完成');
+  assert.equal(service.store.messages().filter(m=>m.role==='assistant').length,0);
+  step('streaming renders real heading and bold before completion');
+  complete!();await live.waitFor({state:'detached'});
+  const answer=page.locator('.row.assistant .md');
+  await answer.locator('table tbody tr').waitFor();
+  assert.equal(await answer.locator('h2').innerText(),'交付文件');
+  assert.equal(await answer.locator('table th').count(),2);
+  assert.equal(await answer.locator('table td strong').innerText(),'C++17');
+  assert.ok((await answer.locator('.md-code pre').innerText()).includes('#include <iostream>'));
+  assert.equal(await answer.locator('blockquote').innerText(),'引用说明');
+  assert.equal(await answer.locator('input[type="checkbox"]').count(),2);
+  assert.equal(await answer.locator('a[href="https://example.com"]').count(),1);
+  assert.equal(await answer.locator('a[href^="javascript:"]').count(),0);
+  assert.equal(await page.evaluate(()=> (window as any).__mdUnsafe),undefined);
+  assert.deepEqual(remote,[]);
+  await page.screenshot({path:join(output,'rendered.png')});
+  step('tables, code, quotes and checklists render; unsafe markup and remote images are inert');
+  await page.reload();await page.locator('.row.assistant .md table').waitFor();
+  step('durable history renders after reload');
+  const now=new Date().toISOString();
+  const task={id:'legacy-markdown',title:'红黑树',instruction:'test',executor:'demo' as const,model:'',workspace:root,status:'succeeded' as const,createdAt:now,updatedAt:now,result:prefix+rest,error:'',logs:[]};
+  service.store.put('task',task.id,task);service.emit('task.created',task);
+  const message=service.store.message('assistant','「红黑树」执行结束。\n完成。 ## 交付文件 | 文件 | 说明 | |---|---| …\n完整内容在任务详情里。',task.id);
+  service.emit('message.created',message);
+  await page.locator('.row.assistant .md table').nth(1).waitFor();
+  assert.ok(service.store.messages().at(-1)!.content.includes('完成。 ##'));
+  step('old flattened task message is recovered from source without changing saved text');
+  assert.deepEqual(errors,[]);
+  console.log(`Markdown rendering passed. Screenshots: ${output}`);
+} finally {
+  await browser?.close();await vite?.close();await service.close();backend.close();
+}

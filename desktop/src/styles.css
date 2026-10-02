@@ -343,10 +343,20 @@ a:hover { text-decoration: underline; }
 .send:disabled { background: var(--line-2); color: var(--ink-3); box-shadow: none; opacity: 1; }
 
 /* markdown */
-.md { display: flex; flex-direction: column; gap: 6px; }
-.md p, .md ul, .md ol, .md h4 { margin: 0; }
+.md { display: flex; flex-direction: column; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.md p, .md ul, .md ol, .md h1, .md h2, .md h3, .md h4, .md h5, .md h6 { margin: 0; }
 .md ul, .md ol { padding-left: 20px; }
-.md h4 { font-size: 14px; }
+.md h1 { font-size: 19px; } .md h2 { font-size: 17px; } .md h3 { font-size: 15px; }
+.md h4, .md h5, .md h6 { font-size: 14px; }
+.md blockquote { margin: 0; padding: 4px 10px; border-left: 3px solid var(--blue); color: var(--ink-2); background: var(--field); }
+.md hr { width: 100%; border: 0; border-top: 1px solid var(--line); }
+.md li > ul, .md li > ol { margin-top: 4px; }
+.md .contains-task-list { list-style: none; padding-left: 0; }
+.md input[type=checkbox] { margin-right: 6px; }
+.md-table-scroll { max-width: 100%; overflow-x: auto; }
+.md table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.md th, .md td { padding: 6px 8px; border: 1px solid var(--line-2); vertical-align: top; min-width: 80px; }
+.md th { background: var(--field); font-weight: 700; }
 .md code { font-family: var(--mono); font-size: 12px; padding: 1px 5px; border-radius: 5px; background: var(--field); }
 .row.user .md code { background: rgba(255, 255, 255, 0.2); }
 .md-code { border-radius: 12px; overflow: hidden; background: #151a33; color: #dfe5ff; }

@@ -2,7 +2,7 @@
 
 一个有性格、能管理 AI 工作进度的 Windows 桌面搭档。聊天交代任务、记录事务和日程，后台执行，遇到中断后继续做。
 
-当前版本 **0.2.11 · 早期预览**。[下载 Windows x64 预览版](https://github.com/SatakaGintoki/zhuochong/releases/tag/v0.2.11)。提供压缩包，解压全部文件后运行“大肥鱼管家.exe”；不是安装器，也未签名。不需要另装 Node.js；真实工作仍需个人模型凭据与已登录的执行器。
+当前版本 **0.2.12 · 早期预览**。[下载 Windows x64 预览版](https://github.com/SatakaGintoki/zhuochong/releases/tag/v0.2.12)。提供压缩包，解压全部文件后运行“大肥鱼管家.exe”；不是安装器，也未签名。不需要另装 Node.js；真实工作仍需个人模型凭据与已登录的执行器。
 
 若 Windows 阻止启动，请查看系统提示和来源信息；不要关闭系统保护。尚无正式稳定版，已知限制见下文及发行说明。
 

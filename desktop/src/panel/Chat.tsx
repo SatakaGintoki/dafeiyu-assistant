@@ -10,6 +10,7 @@ import { useToast } from '../ui/toast';
 import { Markdown } from './Markdown';
 import { StatusIcon, statusLabel } from './StatusIcon';
 import { permissionBlocked } from '../lib/activity';
+import { messageDisplay } from '../lib/message-display';
 
 const suggestions = ['你都能帮我做什么？', '帮我看看当前工作目录的项目结构', '写个脚本整理下载文件夹', '最近的任务进展如何？'];
 
@@ -190,7 +191,7 @@ function MessageRow({ message, task, onOpenTask }: { message: Message; task?: Ta
       <div className="msg-col">
         {message.content.trim() && (
           <div className="msg" title={time(message.createdAt)}>
-            {mine ? <p className="plain">{message.content}</p> : <Markdown text={message.content} />}
+            <Markdown text={mine ? message.content : messageDisplay(message,task)} />
           </div>
         )}
         {task && (
