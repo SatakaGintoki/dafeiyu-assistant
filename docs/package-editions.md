@@ -26,6 +26,15 @@ Lite 锁文件为 `desktop/backend-lite.package-lock.json`，依赖清单为 `de
 
 ## 验证
 
+0.2.14 的两版已通过 [GitHub Windows 发行验收](https://github.com/SatakaGintoki/dafeiyu-assistant/actions/runs/37065229729)，可从 [发行页](https://github.com/SatakaGintoki/dafeiyu-assistant/releases/tag/v0.2.14) 下载。
+
+| 版本 | ZIP 字节数 | 解压字节数 |
+| --- | ---: | ---: |
+| Lite | 220,967,563 | 508,194,138 |
+| Full | 381,284,124 | 1,033,426,194 |
+
+完整校验值见发行页的 `SHA256SUMS.txt` 和 `release-0.2.14.json`。下载体积和解压体积是不同指标，不包含用户数据或用户自行安装的编码执行器。
+
 `check-packaged-backend.mjs` 直接启动产出的后端，验证依赖裁剪、能力字段、项目记忆、Direct 工具循环、演示任务；Full 额外通过真实 SDK 与本地模拟模型验证 Harness 工具调用。没有使用实际模型凭据。
 
 `verify-packaged-app.mjs <应用目录> <隔离输出目录>` 验证原生启动、置顶、托盘/面板流程、HTTP 联通及演示任务。两个版本通过后，发行流程创建 ZIP、校验并上传，`release-版本.json` 记录下载与解压体积、SHA256、源码提交和构建运行 ID。
