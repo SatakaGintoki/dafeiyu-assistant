@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing version tag (for example v0.2.8)
+        description: Existing version tag (for example v0.2.14)
         required: true
         type: string
 permissions:
@@ -14,7 +14,7 @@ concurrency:
 jobs:
   release:
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,6 +26,7 @@ jobs:
           cache-dependency-path: |
             package-lock.json
             desktop/package-lock.json
+            desktop/backend-lite.package-lock.json
       - name: Validate tag
         shell: pwsh
         env:
@@ -38,46 +39,53 @@ jobs:
       - name: Install Electron runtime
         working-directory: desktop
         run: node node_modules/electron/install.js
+      - run: npm run check:repository
       - run: npm run check
       - run: npm --prefix desktop run check
       - run: npm --prefix desktop run build
-      - run: npm --prefix desktop run package:prepare
-      - name: Package application directory
-        working-directory: desktop
-        run: node node_modules/electron-builder/cli.js --config electron-builder.json --win --dir --publish never
-      - name: Verify packaged application and create archive
+      - name: Build and verify both editions
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
           $version=(Get-Content package.json -Raw | ConvertFrom-Json).version
-          $app=(Resolve-Path desktop/release/win-unpacked).Path
-          $verification=Join-Path $env:RUNNER_TEMP 'dayu-verification'
-          $p=Start-Process -FilePath (Join-Path $app '大肥鱼管家.exe') -WorkingDirectory $app -ArgumentList "--dayu-verify=$verification" -WindowStyle Hidden -PassThru
-          if (-not $p.WaitForExit(60000)) { Stop-Process -Id $p.Id; throw 'Packaged app verification timed out' }
-          $report=Get-ChildItem $verification -Recurse -Filter result.json | Select-Object -First 1
-          if (-not $report) { throw 'Missing packaged app verification report' }
-          $result=Get-Content $report.FullName -Raw | ConvertFrom-Json
-          if (-not $result.ok -or $result.version -ne $version) { throw 'Packaged verification failed' }
           $out=New-Item -ItemType Directory -Path public-release
-          $archive=Join-Path $out.FullName "Dafeiyu-$version-windows-x64.zip"
-          @'
-          大肥鱼管家 Windows x64 预览版
-          完整解压 ZIP 后运行“大肥鱼管家.exe”，不要只复制 EXE。
-          自带后端和 Node.js。可先选演示模式；真实聊天需要个人 DeepSeek API Key，真实任务需要已安装并登录的执行器。
-          数据保存在 %APPDATA%/dayu-desktop-pet/。升级前等任务结束并从托盘退出旧版。
-          未签名，不是安装器。遇到系统拦截请检查来源与系统提示，不要关闭安全保护。
-          凭据暂存本地文件；不要上传数据目录。项目整体许可证尚待作者选择，第三方许可随包保留。
-          https://github.com/SatakaGintoki/zhuochong
-          '@ | Set-Content (Join-Path $app 'README-WINDOWS.txt') -Encoding utf8
-          Copy-Item (Join-Path $app 'README-WINDOWS.txt') $out.FullName
-          & 7z a -tzip -mx=1 $archive "$app/*"
-          if ($LASTEXITCODE -ne 0) { throw 'Archive creation failed' }
-          & 7z t $archive
-          if ($LASTEXITCODE -ne 0) { throw 'Archive validation failed' }
-          $hash=(Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $(Split-Path $archive -Leaf)" | Set-Content (Join-Path $out.FullName 'SHA256SUMS.txt') -Encoding utf8
-          $commit=git rev-parse HEAD
-          @{version=$version;commit=$commit;file=(Split-Path $archive -Leaf);sha256=$hash;signed=$false;packagedApplicationVerified=$true;builtBy='GitHub Actions Windows';runId=$env:GITHUB_RUN_ID} | ConvertTo-Json | Set-Content (Join-Path $out.FullName "release-$version.json") -Encoding utf8
+          $hashes=@()
+          $editions=@()
+          foreach ($profile in @('lite','full')) {
+            & npm --prefix desktop run package:prepare -- "--profile=$profile"
+            if ($LASTEXITCODE -ne 0) { throw "Prepare failed: $profile" }
+            & node desktop/scripts/check-packaged-backend.mjs
+            if ($LASTEXITCODE -ne 0) { throw "Backend tool verification failed: $profile" }
+            Push-Location desktop
+            & node node_modules/electron-builder/cli.js --config electron-builder.json "--config.directories.output=release/$profile" --win --dir --publish never
+            $buildExit=$LASTEXITCODE
+            Pop-Location
+            if ($buildExit -ne 0) { throw "Package failed: $profile" }
+            $app=(Resolve-Path "desktop/release/$profile/win-unpacked").Path
+            & node desktop/scripts/verify-packaged-app.mjs $app "work/packaged-$profile-verify"
+            if ($LASTEXITCODE -ne 0) { throw "Native application verification failed: $profile" }
+            $edition=if ($profile -eq 'lite') {'Lite'} else {'Full'}
+            $archive=Join-Path $out.FullName "Dafeiyu-$version-$edition-windows-x64.zip"
+            @"
+          大肥鱼管家 $version · $edition · Windows x64 预览版
+          完整解压后运行“大肥鱼管家.exe”。Lite 默认推荐，支持直连模型、工具、任务与事务；Full 另外包含 Harness。
+          两版自带后端和 Node.js，不包含本项目未使用的 Office 转换二进制。真实聊天需个人 API Key，编码需已登录的执行器。
+          数据在 %APPDATA%/dayu-desktop-pet/。切换版本前等任务结束并退出旧版，数据继续保留；Lite 不会自动把已有 Harness 配置改成直连。
+          未签名，不是安装器。遇到系统拦截请检查来源与提示，不要关闭安全保护。
+          代码与原创文档采用 MIT，素材许可见包内 CREDITS。不要上传凭据或个人数据。
+          https://github.com/SatakaGintoki/dafeiyu-assistant
+          "@ | Set-Content (Join-Path $app 'README-WINDOWS.txt') -Encoding utf8
+            & 7z a -tzip -mx=1 -bso0 -bsp0 $archive "$app/*"
+            if ($LASTEXITCODE -ne 0) { throw "Archive failed: $profile" }
+            & 7z t -bso0 -bsp0 $archive
+            if ($LASTEXITCODE -ne 0) { throw "Archive validation failed: $profile" }
+            $hash=(Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+            $hashes+="$hash  $(Split-Path $archive -Leaf)"
+            $unpacked=(Get-ChildItem $app -Recurse -File | Measure-Object Length -Sum).Sum
+            $editions+=@{edition=$edition;file=(Split-Path $archive -Leaf);bytes=(Get-Item $archive).Length;unpackedBytes=$unpacked;sha256=$hash;nativeVerified=$true;backendToolsVerifiedWithMockModel=$true}
+          }
+          $hashes | Set-Content (Join-Path $out.FullName 'SHA256SUMS.txt') -Encoding utf8
+          @{version=$version;commit=(git rev-parse HEAD);editions=$editions;signed=$false;builtBy='GitHub Actions Windows';runId=$env:GITHUB_RUN_ID} | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $out.FullName "release-$version.json") -Encoding utf8
       - name: Upload and publish prerelease
         uses: actions/github-script@v7
         env:
@@ -89,19 +97,25 @@ jobs:
             const crypto = require('crypto');
             const tag = process.env.RELEASE_TAG;
             const version = tag.slice(1);
-            const body = `Windows x64 早期预览版。下载 Dafeiyu-${version}-windows-x64.zip，完整解压后运行“大肥鱼管家.exe”。自带后端和 Node.js。\n\n修复聊天、历史消息和任务详情的 Markdown 渲染（标题、表格、引用、列表、代码块），恢复旧任务通知的格式化预览；支持直连流式回复、细分状态和权限受阻处理入口；保留眨眼、点头、思考逐帧表情和闭眼睡觉状态。包含通用事务本（项目、待办、日程、笔记）、学习/工作计划草案确认、重复日程、时区、桌面提醒、免打扰与稍后提醒，以及短对话、任务派发、中断续做、Claude 会话恢复、桌宠置顶和托盘召回。可先用演示模式；真实使用需个人模型凭据及已登录的执行器。\n\n按版本标签在 GitHub Windows 环境构建，自动测试、安装目录启动验证与 ZIP 校验通过。校验值见 SHA256SUMS.txt，构建信息见 release-${version}.json。\n\n**限制：未签名的程序压缩包，不是安装器或稳定版。** 不要关闭系统保护。凭据暂存本地文件，数据位于 %APPDATA%/dayu-desktop-pet/；升级前结束任务并退出旧版。权限拒绝需处理实际 CLI/项目策略，任务成功不等于独立业务验收。项目整体许可证尚未选定，第三方许可随包保留。`;
+            const body = `Windows x64 早期预览版，提供两个版本：\n\n- **Lite（推荐）**：直连 DeepSeek，保留管家工具、编码任务与续做、项目记忆、日程提醒、流式对话、Markdown 和桌宠表情。\n- **Full**：包含以上功能和官方 Harness SDK。\n\n完整解压后运行“大肥鱼管家.exe”。两版共用个人数据，切换前等任务结束并退出旧版；已有 Harness 配置在 Lite 中会明确提示，不静默切换模型运行方式。\n\n裁掉调试映射和管家未使用的 Office 可选二进制，保留许可证。大小与 SHA256 见 release-${version}.json 和 SHA256SUMS.txt。两版均在干净 Windows 环境验证原生启动、置顶与演示流程；Direct/Harness 后端工具循环使用模拟模型验证，不代表真实账号或所有执行器通过。\n\n**未签名的 ZIP，不是安装器或稳定版。** 真实使用需个人凭据，数据在 %APPDATA%/dayu-desktop-pet/。代码 MIT，素材来源和许可单独保留。`;
             const existing = (await github.rest.repos.listReleases({...context.repo, per_page:100})).data.find(r=>r.tag_name===tag);
             if(existing && !existing.draft) throw new Error('Release already public; refusing to replace assets');
-            const release = existing || (await github.rest.repos.createRelease({...context.repo, tag_name:tag, name:`大肥鱼管家 ${tag} · Windows 预览版`, body, draft:true, prerelease:true})).data;
-            const files = fs.readdirSync('public-release');
-            const assets = (await github.rest.repos.listReleaseAssets({...context.repo, release_id:release.id})).data;
-            for(const file of files) {
-              const data = fs.readFileSync(path.join('public-release',file));
-              const digest = 'sha256:'+crypto.createHash('sha256').update(data).digest('hex');
-              let asset = assets.find(a=>a.name===file);
+            const release = existing || (await github.rest.repos.createRelease({...context.repo,tag_name:tag,name:`大肥鱼管家 ${tag} · Lite / Full`,body,draft:true,prerelease:true})).data;
+            const assets = (await github.rest.repos.listReleaseAssets({...context.repo,release_id:release.id})).data;
+            for(const file of fs.readdirSync('public-release')) {
+              const data=fs.readFileSync(path.join('public-release',file));
+              const digest='sha256:'+crypto.createHash('sha256').update(data).digest('hex');
+              let asset=assets.find(a=>a.name===file);
               if(!asset) asset=(await github.rest.repos.uploadReleaseAsset({...context.repo,release_id:release.id,name:file,data,headers:{'content-type':'application/octet-stream','content-length':data.length}})).data;
               if(asset.size!==data.length || asset.digest!==digest) throw new Error('Asset verification failed: '+file);
-              core.info('Verified '+file);
             }
             await github.rest.repos.updateRelease({...context.repo,release_id:release.id,body,draft:false,prerelease:true});
             core.info(release.html_url);
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: preview-failure
+          path: |
+            work/packaged-*-verify/
+          retention-days: 7
+          if-no-files-found: ignore

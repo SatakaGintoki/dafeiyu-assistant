@@ -8,6 +8,7 @@
   "npmRebuild": false,
   "files": ["dist/**/*", "dist-electron/*.cjs", "src/assets/front.png", "assets/CREDITS.md", "assets/LICENSE-dafeiyu-pet", "package.json", "!node_modules/**/*"],
   "extraResources": [
+    { "from": "package-resources/build-profile.json", "to": "build-profile.json" },
     { "from": "package-resources/backend", "to": "backend" },
     { "from": "package-resources/backend/node_modules", "to": "backend/node_modules", "filter": ["**/*"] },
     { "from": "package-resources/runtime", "to": "runtime" }

@@ -118,6 +118,7 @@ export class HarnessRuntime implements Runtime {
   private closing?:Promise<void>;
   constructor(private config:Config,private store:Store,private internalUrl:()=>string,private internalToken:string){}
   async reply(input:string,signal:AbortSignal,onProgress:(text:string)=>void) {
+    if(this.config.value.harnessAvailable===false)throw new ApiError(503,'轻量版未包含 Harness，请下载完整版，或在设置中选择直连管家');
     if(!this.config.apiKey)throw new ApiError(503,'尚未配置 DeepSeek API Key，请通过设置接口配置');
     await this.closing;
     signal.throwIfAborted();

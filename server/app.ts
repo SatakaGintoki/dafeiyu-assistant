@@ -113,6 +113,7 @@ export function createApp(options:AppOptions) {
     const input=z.object({message:z.string().trim().min(1).max(12000)}).strict().parse(req.body);
     if(busy)throw new ApiError(409,'管家正在回复，请等待或取消当前回复');
     if(config.value.runtime!=='demo' && !config.apiKey)throw new ApiError(503,'尚未配置 DeepSeek API Key');
+    if(config.value.runtime==='harness'&&config.value.harnessAvailable===false)throw new ApiError(503,'轻量版未包含 Harness，请下载完整版，或在设置中选择直连管家');
     busy=true;chatProgress='正在等待模型回复';chatController=new AbortController();
     const controller=chatController;
     const message=store.message('user',input.message);emit('message.created',message);emit('chat.status',{busy,petState});

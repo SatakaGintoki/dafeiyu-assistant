@@ -1,6 +1,6 @@
 {
   "name": "dayu-desktop-pet",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "private": true,
   "type": "module",
   "description": "大肥鱼管家 · 大肥鱼桌宠前端（Electron + React）",
@@ -14,7 +14,9 @@
     "test": "node ../node_modules/tsx/dist/cli.mjs --test tests/*.test.ts",
     "test:desktop": "npm run build && node scripts/check-desktop.mjs",
     "package:prepare": "node scripts/prepare-package.mjs",
-    "package:win": "npm run build && npm run package:prepare && node scripts/package-win.mjs"
+    "package:prepare:full": "node scripts/prepare-package.mjs --profile=full",
+    "package:win": "npm run build && npm run package:prepare && node scripts/package-win.mjs",
+    "package:win:full": "npm run build && npm run package:prepare:full && node scripts/package-win.mjs --profile=full"
   },
   "dependencies": {
     "@js-temporal/polyfill": "^0.5.1",

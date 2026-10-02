@@ -8,7 +8,7 @@ import { useToast } from '../ui/toast';
 import { WorkspaceSettings } from './WorkspaceSettings';
 import { GettingStarted } from './GettingStarted';
 
-type Form = Omit<SettingsType, 'hasApiKey'> & { apiKey: string };
+type Form = Omit<SettingsType, 'hasApiKey' | 'harnessAvailable'> & { apiKey: string };
 const runtimes: { id: SettingsType['runtime']; label: string; hint: string }[] = [
   { id: 'deepseek', label: '直连管家', hint: '直接连接模型，可调用工具、派发任务' },
   { id: 'harness', label: 'Harness 管家', hint: '通过本地 Harness 调用模型和工具' },
@@ -16,11 +16,11 @@ const runtimes: { id: SettingsType['runtime']; label: string; hint: string }[] =
 ];
 const executors: { id: Executor; label: string }[] = [{ id: 'codex', label: 'Codex' }, { id: 'claude', label: 'Claude Code' }, { id: 'zcode', label: 'ZCode' }, { id: 'demo', label: '演示' }];
 
-function Segmented<T extends string>({ id, value, options, onChange }: { id: string; value: T; options: { id: T; label: string }[]; onChange: (v: T) => void }) {
+function Segmented<T extends string>({ id, value, options, onChange }: { id: string; value: T; options: { id: T; label: string; disabled?: boolean }[]; onChange: (v: T) => void }) {
   return (
     <div className="segmented">
       {options.map(o => (
-        <button type="button" key={o.id} className={value === o.id ? 'on' : ''} onClick={() => onChange(o.id)}>
+        <button type="button" key={o.id} disabled={o.disabled} className={value === o.id ? 'on' : ''} onClick={() => onChange(o.id)}>
           {value === o.id && <motion.span layoutId={`seg-${id}`} className="seg-thumb" transition={{ type: 'spring', stiffness: 500, damping: 38 }} />}
           <span className="seg-label">{o.label}</span>
         </button>
@@ -49,7 +49,7 @@ export function Settings() {
 
   useEffect(() => { void store.refreshExecutors(); }, [store]);
   useEffect(() => {
-    if (settings) { const { hasApiKey: _, ...rest } = settings; setForm({ ...rest, apiKey: '' }); }
+    if (settings) { const { hasApiKey: _, harnessAvailable: _available, ...rest } = settings; setForm({ ...rest, apiKey: '' }); }
   }, [settings]);
 
   const patch = useMemo(() => {
@@ -84,7 +84,8 @@ export function Settings() {
         <WorkspaceSettings />
         <section className="group">
           <h4 id="model-settings">大肥鱼的大脑</h4>
-          <Segmented id="runtime" value={form.runtime} options={runtimes} onChange={v => set('runtime', v)} />
+          <Segmented id="runtime" value={form.runtime} options={runtimes.map(r=>({...r,disabled:r.id==='harness'&&settings.harnessAvailable===false}))} onChange={v => set('runtime', v)} />
+          {settings.harnessAvailable===false&&<p className="hint">当前为轻量版，支持直连和演示。需要 Harness 时可安装完整版，沿用同一份个人数据。<button className="btn ghost" onClick={()=>host.openExternal('https://github.com/SatakaGintoki/dafeiyu-assistant/releases')}>下载完整版</button></p>}
           <p className="hint">{runtimes.find(r => r.id === form.runtime)?.hint}</p>
           <label className="field"><span>DeepSeek API Key</span>
             <input type="password" autoComplete="off" value={form.apiKey} onChange={e => set('apiKey', e.target.value)}
@@ -143,7 +144,7 @@ export function Settings() {
 
       <motion.div className="save-bar" initial={false} animate={{ y: dirty ? 0 : 80, opacity: dirty ? 1 : 0 }} transition={{ type: 'spring', stiffness: 460, damping: 36 }}>
         <span>{busy ? '大肥鱼正忙，稍后才能保存' : '有未保存的修改'}</span>
-        <button className="btn ghost" onClick={() => { const { hasApiKey: _, ...rest } = settings; setForm({ ...rest, apiKey: '' }); }}>还原</button>
+        <button className="btn ghost" onClick={() => { const { hasApiKey: _, harnessAvailable: _available, ...rest } = settings; setForm({ ...rest, apiKey: '' }); }}>还原</button>
         <button className="btn primary" disabled={saving || busy} onClick={() => void save()}>{saving ? '保存中…' : '保存'}</button>
       </motion.div>
     </div>

@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "大肥鱼管家后端",
-    "version": "0.2.13",
+    "version": "0.2.14",
     "description": "独立本地后端。通过 Bearer Token 认证；SSE 使用 fetch 流。CLI 运行成功表示执行器已结束，不等于独立验证业务目标。"
   },
   "servers": [
@@ -5956,6 +5956,11 @@
           "hasApiKey": {
             "type": "boolean",
             "readOnly": true
+          },
+          "harnessAvailable": {
+            "type": "boolean",
+            "readOnly": true,
+            "description": "是否包含官方 Harness SDK；轻量版为 false"
           }
         }
       },

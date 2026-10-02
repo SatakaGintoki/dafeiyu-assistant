@@ -3,10 +3,12 @@ import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const env = { ...process.env };
+const profile=process.argv.find(a=>a.startsWith('--profile='))?.slice(10)||'lite';
+if(!['lite','full'].includes(profile))throw new Error('Profile must be lite or full');
 const tools = resolve(import.meta.dirname, '../../work/package-tools');
 // Prefer locally verified tools when present; otherwise builder uses its official downloads.
 if (existsSync(`${tools}/nsis-3.0.4.1/Bin/makensis.exe`)) env.ELECTRON_BUILDER_NSIS_DIR = `${tools}/nsis-3.0.4.1`;
 if (existsSync(`${tools}/nsis-resources-3.4.1/plugins`)) env.ELECTRON_BUILDER_NSIS_RESOURCES_DIR = `${tools}/nsis-resources-3.4.1`;
-const child = spawn(process.execPath, ['node_modules/electron-builder/cli.js', '--config', 'electron-builder.json', '--win'], { env, stdio: 'inherit' });
+const child = spawn(process.execPath, ['node_modules/electron-builder/cli.js', '--config', 'electron-builder.json', `--config.directories.output=release/${profile}`,`--config.nsis.artifactName=Dafeiyu-${profile}-Setup-\${version}-\${arch}.\${ext}`, '--win'], { env, stdio: 'inherit' });
 child.once('error', error => { console.error(error); process.exitCode = 1; });
 child.once('exit', code => { process.exitCode = code ?? 1; });

@@ -1,0 +1,16 @@
+{
+  "name": "dafeiyu-backend-lite",
+  "version": "0.2.14",
+  "private": true,
+  "type": "module",
+  "description": "大肥鱼 · DeepSeek 桌面管家",
+  "dependencies": {
+    "@js-temporal/polyfill": "^0.5.1",
+    "express": "^5.1.0",
+    "zod": "^3.24.0",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  }
+}

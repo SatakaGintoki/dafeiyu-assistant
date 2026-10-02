@@ -8,7 +8,7 @@
 
 *界面预览使用隔离演示数据，展示桌宠与聊天面板。*
 
-源码版本 **0.2.13 · 开发中**，当前可下载版本为 **0.2.12 · 早期预览**。[下载 Windows x64 预览版](https://github.com/SatakaGintoki/dafeiyu-assistant/releases/tag/v0.2.12)。提供压缩包，解压全部文件后运行“大肥鱼管家.exe”；不是安装器，也未签名。不需要另装 Node.js；真实工作仍需个人模型凭据与已登录的执行器。
+源码版本 **0.2.14 · 开发中**，当前可下载版本为 **0.2.12 · 早期预览**。[下载 Windows x64 预览版](https://github.com/SatakaGintoki/dafeiyu-assistant/releases/tag/v0.2.12)。提供压缩包，解压全部文件后运行“大肥鱼管家.exe”；不是安装器，也未签名。不需要另装 Node.js；真实工作仍需个人模型凭据与已登录的执行器。
 
 若 Windows 阻止启动，请查看系统提示和来源信息；不要关闭系统保护。尚无正式稳定版，已知限制见下文及发行说明。
 
@@ -67,6 +67,8 @@
 记录事务、设置提醒和查看日程由管家自身的工具处理；需要操作代码项目时，再派给本机执行器。实际执行取决于模型配置、执行器和权限，示例不代表无需配置即可完成。
 
 ## 下载后怎样使用
+
+0.2.14 开始提供两种发行构建：**Lite（默认推荐，直连管家）** 和 **Full（额外包含 Harness）**。日程、记忆、任务及续做等本项目功能两版均有。需要 Harness 时下载 Full，退出旧版后切换，沿用同一份个人数据；已有 Harness 配置不会被 Lite 静默改成直连。构建与验证说明见 [发行版本区别](docs/package-editions.md)。
 
 1. 从 [Releases](https://github.com/SatakaGintoki/dafeiyu-assistant/releases/tag/v0.2.12) 下载 `Dafeiyu-0.2.12-windows-x64.zip`，完整解压到独立文件夹，运行“大肥鱼管家.exe”。发行包自带后端和 Node.js。
 2. 双击角色打开面板，在设置中选择“演示”，无需 API Key 即可体验队列；演示不会实际写代码。

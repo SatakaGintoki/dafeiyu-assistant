@@ -11,11 +11,15 @@ for(const file of files){
   if(/-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/.test(source)||/\b(?:ghp_|github_pat_|sk-)[A-Za-z0-9_\-]{32,}\b/.test(source))failures.push(`${file}: possible credential; review locally`);
 }
 const root=JSON.parse(readFileSync('package.json','utf8')).version;
-for(const file of ['package-lock.json','desktop/package.json','desktop/package-lock.json']){
+for(const file of ['package-lock.json','desktop/package.json','desktop/package-lock.json','desktop/backend-lite.package.json','desktop/backend-lite.package-lock.json']){
   const data=JSON.parse(readFileSync(file,'utf8'));
   if(data.version!==root||(data.packages?.['']&&data.packages[''].version!==root))failures.push(`${file}: version mismatch`);
 }
 if(!readFileSync('shared/version.ts','utf8').includes(`'${root}'`))failures.push('shared/version.ts: version mismatch');
+const expectedLite={...JSON.parse(readFileSync('package.json','utf8')).dependencies};
+delete expectedLite['@deepseek-ai/dsh-sdk-client'];delete expectedLite['@deepseek-ai/dsh-tools'];
+const actualLite=JSON.parse(readFileSync('desktop/backend-lite.package.json','utf8')).dependencies;
+if(JSON.stringify(Object.entries(expectedLite).sort())!==JSON.stringify(Object.entries(actualLite).sort()))failures.push('desktop/backend-lite.package.json: dependencies differ from root core dependencies');
 if(!readFileSync('README.md','utf8').includes(`**${root}`))failures.push('README.md: version mismatch');
 if(!existsSync('LICENSE'))console.log('Publication pending: project LICENSE has not been selected.');
 if(failures.length){for(const issue of failures)console.error(issue);process.exitCode=1;}

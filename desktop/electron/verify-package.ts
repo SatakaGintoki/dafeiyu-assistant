@@ -1,6 +1,6 @@
 import { APP_VERSION } from '../../shared/version';
 import { app, BrowserWindow } from 'electron';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import assert from 'node:assert/strict';
 
@@ -36,6 +36,8 @@ export async function verifyPackage(output: string) {
     const call = (method: string, path: string, body?: unknown) => panel.webContents.executeJavaScript(
       `window.dayu.api.request(${JSON.stringify(method)},${JSON.stringify(path)},${JSON.stringify(body) ?? 'undefined'})`);
     assert.equal((await call('GET', '/api/v1/state')).status, 200);
+    const profile=JSON.parse(readFileSync(join(process.resourcesPath,'build-profile.json'),'utf8'));
+    assert.equal((await call('GET','/api/v1/settings')).body.harnessAvailable,profile.harness);
     assert.equal((await call('PATCH', '/api/v1/settings', { runtime: 'demo', defaultExecutor: 'demo' })).status, 200);
     assert.equal((await call('POST', '/api/v1/chat', { message: '安装版验证' })).status, 202);
     const created = await call('POST', '/api/v1/tasks', { title: '安装版验证', instruction: '演示任务', executor: 'demo' });

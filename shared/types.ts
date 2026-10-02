@@ -22,6 +22,7 @@ export interface Settings {
   defaultExecutor: Executor; workspace: string; nickname: string;
   codexPath: string; claudePath: string; zcodePath: string; executorModel: string;
   claudeFullAccess?: boolean; taskTimeoutMinutes: number; hasApiKey: boolean;
+  harnessAvailable?: boolean;
 }
 export interface ExecutorInfo { id: Executor; name: string; available: boolean; detail: string }
 export interface Snapshot { messages: Message[]; tasks: Task[]; settings: Settings; executors: ExecutorInfo[]; busy: boolean; petState: string; chatStream?: {id:string;text:string}; chatProgress?: string }

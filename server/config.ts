@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, renameSync, realpathSync, statSync, mkdirSync } from 'node:fs';
 import { resolve, isAbsolute, parse, join } from 'node:path';
 import { z } from 'zod';
+import { createRequire } from 'node:module';
 import { defaults, Store } from './store';
 import type { Settings } from '../shared/types';
 
@@ -35,10 +36,11 @@ export class Config {
     this.secret = process.env.DEEPSEEK_API_KEY || (existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')).apiKey : '') || '';
   }
   get apiKey() { return this.secret; }
-  get value(): Settings { return { ...defaults(this.projectRoot), ...this.store.get<Settings>('config','settings'), hasApiKey: !!this.secret }; }
+  get value(): Settings { return { ...defaults(this.projectRoot), ...this.store.get<Settings>('config','settings'), hasApiKey: !!this.secret, harnessAvailable: harnessAvailable() }; }
   update(input: unknown): Settings {
     const parsed = settingsSchema.parse(input);
     const { apiKey, ...patch } = parsed;
+    if(patch.runtime==='harness'&&!harnessAvailable())throw new ApiError(503,'轻量版未包含 Harness，请下载完整版，或选择直连管家；个人数据可继续使用');
     if (patch.workspace) patch.workspace = workspacePath(patch.workspace);
     if (patch.baseUrl) {
       const url = new URL(patch.baseUrl);
@@ -60,3 +62,5 @@ export class Config {
     return text.length>32000 ? text.slice(0,32000)+'\n[内容已截断，请查看执行器原始产物]' : text;
   }
 }
+
+function harnessAvailable(){try{const profile=new URL('./build-profile.json',import.meta.url);if(existsSync(profile)&&JSON.parse(readFileSync(profile,'utf8')).harness===false)return false;createRequire(import.meta.url).resolve('@deepseek-ai/dsh-sdk-client');return true;}catch{return false;}}
