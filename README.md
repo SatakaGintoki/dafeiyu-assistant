@@ -95,7 +95,7 @@ npm run docs
 
 Windows CI 从锁文件安装依赖并运行后端、前端及真实 Electron 隔离验收。纯文档提交不运行桌面测试；分支代码改动和 Pull Request 会运行，手动触发也可用。实时模型测试不属于 CI。收到失败邮件时查看[自动检查说明](docs/GITHUB-ACTIONS.md)。
 
-[架构](docs/ARCHITECTURE.md) · [OpenAPI](docs/openapi.json) · [前端开发](desktop/README.md) · [发布门槛](docs/PUBLIC-PREVIEW.md) · [版本记录](CHANGELOG.md) · [后续计划](docs/ROADMAP.md) · [贡献指南](CONTRIBUTING.md)
+[架构](docs/ARCHITECTURE.md) · [OpenAPI](docs/openapi.json) · [前端开发](desktop/README.md) · [发布门槛](docs/PUBLIC-PREVIEW.md) · [版本记录](CHANGELOG.md) · [后续计划](docs/ROADMAP.md)
 
 ## 许可与素材
 
