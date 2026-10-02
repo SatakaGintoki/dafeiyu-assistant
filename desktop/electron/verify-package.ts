@@ -19,12 +19,20 @@ export async function verifyPackage(output: string) {
     await delay(200);
     assert.equal(pet.isVisible(),true,'pet remains visible after losing focus');
     assert.equal(pet.isAlwaysOnTop(),true,'focus mode must not disable pet topmost');
+    assert.equal(panel.isAlwaysOnTop(),true,'focus mode must not disable panel topmost');
     await panel.webContents.executeJavaScript('window.dayu.prefs.set({topmost:false})');
     await delay(200);
     assert.equal(pet.isAlwaysOnTop(),false,'explicit topmost toggle still works');
+    assert.equal(panel.isAlwaysOnTop(),false,'panel follows explicit topmost toggle');
     await panel.webContents.executeJavaScript('window.dayu.prefs.set({topmost:true,focus:false})');
     await delay(200);
     assert.equal(pet.isAlwaysOnTop(),true);
+    assert.equal(panel.isAlwaysOnTop(),true);
+    panel.hide();
+    await panel.webContents.executeJavaScript("window.dayu.panel.open('chat')");
+    await delay(200);
+    assert.equal(panel.isVisible(),true,'recalled panel is visible');
+    assert.equal(panel.isAlwaysOnTop(),true,'recalled panel remains topmost');
     const call = (method: string, path: string, body?: unknown) => panel.webContents.executeJavaScript(
       `window.dayu.api.request(${JSON.stringify(method)},${JSON.stringify(path)},${JSON.stringify(body) ?? 'undefined'})`);
     assert.equal((await call('GET', '/api/v1/state')).status, 200);

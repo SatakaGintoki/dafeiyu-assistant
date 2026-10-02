@@ -31,6 +31,25 @@ app.whenReady().then(async () => {
     }
     assert.equal(windows.length, 2);
     await pause(700);
+    const petWindow = windows.find(win => win.webContents.getURL().endsWith('#pet'));
+    const panelWindow = windows.find(win => win.webContents.getURL().endsWith('#panel'));
+    assert.ok(petWindow && panelWindow);
+    for (const focus of [false, true]) {
+      await panelWindow.webContents.executeJavaScript(`window.dayu.prefs.set({topmost:true,focus:${focus}})`);
+      await pause(150);
+      assert.equal(petWindow.isAlwaysOnTop(), true);
+      assert.equal(panelWindow.isAlwaysOnTop(), true, 'panel follows topmost even in focus mode');
+    }
+    await panelWindow.webContents.executeJavaScript('window.dayu.prefs.set({topmost:false})');
+    await pause(150);
+    assert.equal(petWindow.isAlwaysOnTop(), false);
+    assert.equal(panelWindow.isAlwaysOnTop(), false);
+    await panelWindow.webContents.executeJavaScript('window.dayu.prefs.set({topmost:true,focus:false})');
+    panelWindow.hide();
+    await panelWindow.webContents.executeJavaScript("window.dayu.panel.open('chat')");
+    await pause(150);
+    assert.equal(panelWindow.isVisible(), true);
+    assert.equal(panelWindow.isAlwaysOnTop(), true);
     if (process.env.DAYU_SMOKE_ONLINE === '1') {
       const panel = windows.find(win => win.webContents.getURL().endsWith('#panel'));
       assert.ok(panel);

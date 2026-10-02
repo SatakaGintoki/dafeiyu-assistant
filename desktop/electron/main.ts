@@ -57,7 +57,7 @@ function setPrefs(patch: Partial<PetPrefs>) {
   prefs = { ...prefs, ...patch };
   savePrefs();
   pet?.setAlwaysOnTop(prefs.topmost, 'floating');
-  panel?.setAlwaysOnTop(prefs.topmost&&!prefs.focus, 'floating');
+  panel?.setAlwaysOnTop(prefs.topmost, 'floating');
   broadcast('prefs:changed', publicPrefs());
 }
 
@@ -126,7 +126,7 @@ function createPanel() {
     fullscreenable: false, skipTaskbar: true, hasShadow: false, show: false, backgroundColor: '#00000000',
     title: '大肥鱼 · 管家面板', webPreferences,
   });
-  panel.setAlwaysOnTop(prefs.topmost&&!prefs.focus, 'floating');
+  panel.setAlwaysOnTop(prefs.topmost, 'floating');
   secure(panel);
   load(panel, 'panel');
   panel.on('blur', () => { /* stays open; user closes explicitly */ });
