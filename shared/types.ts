@@ -14,6 +14,7 @@ export interface FileChange { path: string; kind: 'added' | 'modified' | 'delete
 export interface Project { id: string; name: string; workspace: string; executor: Executor; notes: string }
 export interface TaskTemplate { id: string; name: string; instruction: string }
 export interface Preference { key: string; value: string }
+export interface ConnectionCheck { ok: boolean; mode: 'api' | 'demo'; detail: string }
 export interface Diagnostics { version: string; checks: { name: string; ok: boolean; detail: string }[] }
 export interface Message { id: string; role: 'user' | 'assistant' | 'system'; content: string; createdAt: string; taskId?: string }
 export interface Settings {

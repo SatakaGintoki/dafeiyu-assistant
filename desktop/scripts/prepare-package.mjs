@@ -11,6 +11,7 @@ await build({ entryPoints: [join(root, 'server/desktop-entry.ts')], outfile: joi
   bundle: true, packages: 'external', platform: 'node', target: 'node24', format: 'esm' });
 await copyFile(join(root, 'server/harness-plugin.mjs'), join(stage, 'backend/server/harness-plugin.mjs'));
 await copyFile(join(root, 'server/agenda-tool-definitions.json'), join(stage, 'backend/server/agenda-tool-definitions.json'));
+await copyFile(join(root, 'server/personal-tool-definitions.json'), join(stage, 'backend/server/personal-tool-definitions.json'));
 await copyFile(join(root, 'package.json'), join(stage, 'backend/package.json'));
 await copyFile(join(root, 'package-lock.json'), join(stage, 'backend/package-lock.json'));
 const npmCli = process.env.npm_execpath;

@@ -1,0 +1,42 @@
+/** Isolated browser check: real backend tools, demo mode, no actual model or coding executor. */
+import assert from 'node:assert/strict';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { once } from 'node:events';
+import { createServer } from 'vite';
+import { createApp } from '../../server/app';
+import type { AgendaProject } from '../../shared/agenda';
+const root=resolve(import.meta.dirname,'../..');const output=mkdtempSync(join(root,'work/personal-preview-'));
+const dataDir=join(output,'data');const service=createApp({root,dataDir});service.config.update({runtime:'demo',defaultExecutor:'demo'});
+const backend=service.app.listen(0,'127.0.0.1');await once(backend,'listening');const url=`http://127.0.0.1:${(backend.address() as any).port}`;
+service.setInternalUrl(url);service.start();writeFileSync(join(dataDir,'connection.json'),JSON.stringify({url}));
+delete process.env.DAYU_API_TOKEN;delete process.env.DAYU_BACKEND_URL;delete process.env.DAYU_TOKEN_FILE;process.env.DAYU_DATA_DIR=dataDir;
+const project=service.agenda.mutate('project.create',{name:'数据结构'}) as AgendaProject;
+let vite:Awaited<ReturnType<typeof createServer>>|undefined;let browser:any;
+try{
+ const {chromium}=await import(process.env.PLAYWRIGHT_MODULE_PATH?pathToFileURL(process.env.PLAYWRIGHT_MODULE_PATH).href:'playwright');
+ vite=await createServer({root:join(root,'desktop'),configFile:join(root,'desktop/vite.config.ts'),server:{port:0}});await vite.listen();
+ browser=await chromium.launch({channel:'chrome',headless:true});const page=await browser.newPage({viewport:{width:1280,height:900}});
+ const errors:string[]=[];page.on('pageerror',(e:Error)=>errors.push(e.message));await page.emulateMedia({reducedMotion:'reduce'});
+ await page.goto(vite.resolvedUrls!.local[0]+'?panel=chat');await page.getByRole('button',{name:'第一次使用：配置模型并体验提醒'}).click();
+ await page.getByRole('button',{name:'检查已保存的模型配置'}).click();await page.getByRole('status').filter({hasText:'演示模式可用'}).waitFor();
+ await page.getByRole('button',{name:'创建两分钟后的体验提醒'}).click();await page.getByRole('button',{name:'体验提醒已创建，可在事务页查看'}).waitFor();
+ assert.equal(service.agenda.snapshot().items.length,1);
+ await page.screenshot({path:join(output,'onboarding.png')});
+ await page.getByRole('tab',{name:'事务'}).click();await page.getByRole('button',{name:'项目',exact:true}).click();
+ await page.locator('.ag-project').filter({hasText:'数据结构'}).click();await page.getByRole('button',{name:'添加记忆'}).click();
+ await page.getByLabel('类别',{exact:true}).selectOption('progress');await page.getByLabel('记忆内容').fill('插入已完成，接下来处理删除节点');
+ await page.getByRole('button',{name:'保存记忆',exact:true}).click();await page.locator('.memory-card').filter({hasText:'插入已完成'}).waitFor();
+ assert.equal(service.store.list('project-memory').length,1);
+ const card=page.locator('.memory-card');await card.getByRole('button',{name:'编辑',exact:true}).click();
+ await page.getByLabel('记忆内容').fill('删除也完成了，下一步补边界测试');await page.getByRole('button',{name:'保存记忆',exact:true}).click();
+ await card.filter({hasText:'下一步补边界测试'}).waitFor();await page.screenshot({path:join(output,'memory.png')});
+ await page.reload();await page.getByRole('tab',{name:'事务'}).click();await page.getByRole('button',{name:'项目',exact:true}).click();await page.locator('.ag-project').filter({hasText:'数据结构'}).click();
+ await page.locator('.memory-card').filter({hasText:'下一步补边界测试'}).waitFor();
+ page.on('dialog',(d:any)=>void d.accept());await page.locator('.memory-card').getByRole('button',{name:'编辑',exact:true}).click();await page.getByRole('button',{name:'删除记忆',exact:true}).click();
+ await page.getByText('还没有保存的记忆。',{exact:true}).waitFor();assert.equal(service.store.list('project-memory').length,0);
+ await page.getByRole('tab',{name:'设置'}).click();await page.getByRole('button',{name:'体验提醒已创建，可在事务页查看'}).waitFor();
+ assert.equal(service.agenda.snapshot().items.length,1);assert.deepEqual(errors,[]);assert.ok(project.id);
+ console.log(`PASS: onboarding, demo check, one reminder, memory create/edit/reload/delete; no page errors. Screenshots: ${output}`);
+}finally{await browser?.close();await vite?.close();await service.close();backend.close();}

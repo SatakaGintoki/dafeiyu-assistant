@@ -1,5 +1,7 @@
 import type { Settings, Snapshot, Task, Transport, ExecutorInfo } from './types';
 import type { Project,TaskTemplate,Diagnostics,Preference } from '../../../shared/types';
+import type { ConnectionCheck } from '../../../shared/types';
+import type { MemoryInput, ProjectMemory } from '../../../shared/project-memory';
 import type { AgendaItem, AgendaNotification, AgendaOccurrence, AgendaPlan, AgendaPreferences, AgendaProject, AgendaSnapshot } from '../../../shared/agenda';
 
 export class ApiError extends Error {
@@ -43,6 +45,13 @@ export function createApi(transport: Transport) {
     addTemplate: (name:string,instruction:string) => call<TaskTemplate>('POST','/templates',{name,instruction}),
     removeTemplate: (id:string) => call<void>('DELETE',`/templates/${id}`),
     diagnostics: () => call<Diagnostics>('GET','/diagnostics'),
+    checkConnection: () => call<ConnectionCheck>('POST','/connection-check',{}),
+    memories: {
+      list:(projectId:string)=>call<ProjectMemory[]>('GET',`/project-memories?projectId=${encodeURIComponent(projectId)}`),
+      create:(input:MemoryInput,key:string)=>call<ProjectMemory>('POST','/project-memories',input,{'Idempotency-Key':key}),
+      update:(id:string,input:Partial<Pick<ProjectMemory,'kind'|'content'>>&{revision:number},key:string)=>call<ProjectMemory>('PATCH',`/project-memories/${id}`,input,{'Idempotency-Key':key}),
+      remove:(id:string,revision:number,key:string)=>call<ProjectMemory>('DELETE',`/project-memories/${id}`,{revision},{'Idempotency-Key':key}),
+    },
     preferences: () => call<Preference[]>('GET','/preferences'),
     removePreference: (key:string) => call<void>('POST','/preferences/remove',{key}),
     savePreference: (key:string,value:string) => call<Preference>('POST','/preferences/save',{key,value}),

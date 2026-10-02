@@ -1,6 +1,7 @@
 import { APP_VERSION } from '../shared/version';
 import { workflowPaths,workflowSchemas } from './workflow-openapi';
 import { agendaPaths,agendaSchemas } from './agenda-openapi';
+import { personalPaths,personalSchemas } from './memory-openapi';
 const ref=(name:string)=>({$ref:`#/components/schemas/${name}`});
 const json=(schema:unknown)=>({'application/json':{schema}});
 const response=(description:string,schema?:unknown)=>({description,...(schema?{content:json(schema)}:{})});
@@ -15,6 +16,7 @@ export const openApiDocument={
   servers:[{url:'http://127.0.0.1:4318'}],security:[{bearerAuth:[]}],
   paths:{
     ...agendaPaths,
+    ...personalPaths,
     ...workflowPaths,
     '/health':{get:{summary:'公开的存活检查',security:[],responses:{'200':response('服务存活',{type:'object',properties:{ok:{type:'boolean'},service:string,version:string}})}}},
     '/api/v1/state':{get:{summary:'获取前端完整快照（最近 200 条消息/任务）',responses:{'200':response('当前状态',ref('State')),...errorResponses}}},
@@ -42,6 +44,7 @@ export const openApiDocument={
   },
   components:{securitySchemes:{bearerAuth:{type:'http',scheme:'bearer'}},schemas:{
     ...agendaSchemas,
+    ...personalSchemas,
     ...workflowSchemas,
     Executor:{type:'string',enum:['codex','claude','zcode','demo']},
     TaskStatus:{type:'string',enum:['queued','running','cancelling','succeeded','failed','cancelled','interrupted']},

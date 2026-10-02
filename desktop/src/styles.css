@@ -607,3 +607,7 @@ a:hover { text-decoration: underline; }
 .web-reminder b { font-size: 13.5px; }
 .web-reminder small { color: var(--ink-3); }
 .web-reminder div { display: flex; gap: 6px; justify-content: flex-end; }
+.memory-card { margin: 10px 0; padding: 12px; border: 1px solid var(--line, #dce0ed); border-radius: 12px; }
+.memory-card p, .memory-card details { white-space: pre-wrap; overflow-wrap: anywhere; margin: 8px 0; }
+.memory-card small { display: block; opacity: .65; font-size: 11px; }
+.getting-started > p { margin: 10px 0 6px; }

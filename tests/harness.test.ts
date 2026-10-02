@@ -15,6 +15,7 @@ test('real Harness runtime calls our plugin through HTTP and finishes a durable 
   let hang=false;
   let empty=false;
   let nextAgendaTool=false;
+  let nextPersonalTool:{name:string;args:unknown}|undefined;
   const model=createServer(async(req,res)=>{
     let text='';for await(const chunk of req)text+=chunk;
     const body=JSON.parse(text);modelCalls++;toolNames=(body.tools || []).map((tool:any)=>tool.name);
@@ -25,7 +26,11 @@ test('real Harness runtime calls our plugin through HTTP and finishes a durable 
     const send=(type:string,data:unknown)=>res.write(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`);
     send('message_start',{type:'message_start',message:{id:`msg_${modelCalls}`,type:'message',role:'assistant',content:[],model:'deepseek-flash',stop_reason:null,stop_sequence:null,usage:{input_tokens:10,output_tokens:0}}});
     const isAgendaTool=nextAgendaTool;nextAgendaTool=false;
-    if(isAgendaTool){
+    const personal=nextPersonalTool;nextPersonalTool=undefined;
+    if(personal){
+      send('content_block_start',{type:'content_block_start',index:0,content_block:{type:'tool_use',id:`personal_${modelCalls}`,name:personal.name,input:{}}});
+      send('content_block_delta',{type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify(personal.args)}});
+    }else if(isAgendaTool){
       send('content_block_start',{type:'content_block_start',index:0,content_block:{type:'tool_use',id:'agenda_live_1',name:'manage_agenda',input:{}}});
       send('content_block_delta',{type:'content_block_delta',index:0,delta:{type:'input_json_delta',partial_json:JSON.stringify({operation:'project.create',payload:JSON.stringify({name:'旅行安排'})})}});
     }else if(modelCalls===1){
@@ -36,7 +41,7 @@ test('real Harness runtime calls our plugin through HTTP and finishes a durable 
       send('content_block_delta',{type:'content_block_delta',index:0,delta:{type:'text_delta',text:empty?'':'任务已经排队，我会告诉你结果。'}});
     }
     send('content_block_stop',{type:'content_block_stop',index:0});
-    send('message_delta',{type:'message_delta',delta:{stop_reason:modelCalls===1||isAgendaTool?'tool_use':'end_turn',stop_sequence:null},usage:{output_tokens:15}});
+    send('message_delta',{type:'message_delta',delta:{stop_reason:modelCalls===1||isAgendaTool||personal?'tool_use':'end_turn',stop_sequence:null},usage:{output_tokens:15}});
     send('message_stop',{type:'message_stop'});res.end();
   });
   model.listen(0,'127.0.0.1');await once(model,'listening');
@@ -52,7 +57,7 @@ test('real Harness runtime calls our plugin through HTTP and finishes a durable 
   assert.equal(modelCalls,2);assert.equal(sawToolResult,true);
   assert.ok(JSON.stringify(requests[0].system).includes('蓝色大肥鱼'), 'the actual model request must include the persona');
   assert.ok(JSON.stringify(requests[0].system).includes('默认只返回重点'), 'Harness must receive the same short chat style as direct mode');
-  assert.deepEqual(toolNames.sort(),['query_agenda','manage_agenda','get_runtime_status','dispatch_task','list_tasks','get_task_status','cancel_task','resume_task','remember_preference'].sort());
+  assert.deepEqual(toolNames.sort(),['query_agenda','manage_agenda','resolve_agenda_reference','query_project_memory','manage_project_memory','get_runtime_status','dispatch_task','list_tasks','get_task_status','cancel_task','resume_task','remember_preference'].sort());
   assert.ok(JSON.stringify(requests[0].messages).includes('currentRuntime'));
   assert.equal(service.store.tasks().length,1);
   assert.ok(service.store.messages().some(m=>m.content==='任务已经排队，我会告诉你结果。'));
@@ -80,6 +85,13 @@ test('real Harness runtime calls our plugin through HTTP and finishes a durable 
   await chat('建立旅行安排项目');
   assert.equal(service.agenda.snapshot().projects[0].name,'旅行安排');
   assert.equal(service.store.tasks().length,1,'agenda work does not create coding tasks');
+  const projectId=service.agenda.snapshot().projects[0].id;
+  nextPersonalTool={name:'manage_project_memory',args:{operation:'create',payload:JSON.stringify({projectId,kind:'goal',content:'安排周末旅行'})}};
+  await chat('记住旅行目标：安排周末旅行');
+  assert.equal(service.store.list<any>('project-memory')[0].source.type,'conversation');
+  nextPersonalTool={name:'query_project_memory',args:{projectId}};
+  await chat('旅行项目的目标是什么');
+  assert.ok(JSON.stringify(requests.at(-1).messages).includes('安排周末旅行'));
   hang=true;
   const callsBefore=modelCalls;
   await fetch(url+'/api/v1/chat',{method:'POST',headers:{Authorization:'Bearer '+service.token,'Content-Type':'application/json'},body:JSON.stringify({message:'取消这个等待中的请求'})});

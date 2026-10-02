@@ -5,9 +5,14 @@ import type { Store } from './store';
 import { runtimeStatus } from './runtime-status';
 import { AgendaService } from './agenda';
 import agendaDefinitions from './agenda-tool-definitions.json';
+import personalDefinitions from './personal-tool-definitions.json';
+import { ProjectMemories } from './project-memory';
+import type { AgendaItem } from '../shared/agenda';
+import type { AgendaReference } from '../shared/project-memory';
 
 export const toolDefinitions = [
   ...agendaDefinitions,
+  ...personalDefinitions,
   {name:'get_runtime_status',description:'查看当前程序版本、执行器发现结果和 Claude 完全访问设置。历史失败不代表当前不可用；发现程序不代表云端调用成功。',parameters:{type:'object',properties:{},additionalProperties:false}},
   {name:'dispatch_task',description:'用户明确要求执行工作时创建后台任务，立即返回任务 ID。纯讨论或设计咨询不创建任务。',parameters:{type:'object',properties:{title:{type:'string'},instruction:{type:'string'},executor:{type:'string',enum:['codex','claude','zcode','demo']},model:{type:'string'}},required:['title','instruction'],additionalProperties:false}},
   {name:'list_tasks',description:'查看最近任务的真实状态。',parameters:{type:'object',properties:{},additionalProperties:false}},
@@ -19,9 +24,34 @@ export const toolDefinitions = [
 
 export class ButlerTools {
   private agenda:AgendaService;
-  constructor(private tasks:TaskManager, private store:Store,private config:Config,agenda?:AgendaService){this.agenda=agenda||new AgendaService(store,()=>{});}
+  private memories:ProjectMemories;
+  constructor(private tasks:TaskManager, private store:Store,private config:Config,agenda?:AgendaService,memories?:ProjectMemories){this.agenda=agenda||new AgendaService(store,()=>{});this.memories=memories||new ProjectMemories(store,()=>{},text=>config.redact(text));}
   async execute(name:string,args:unknown,callId?:string):Promise<unknown> {
     switch(name){
+      case 'resolve_agenda_reference': {
+        const q=z.object({query:z.string().trim().min(1).max(160).optional(),projectId:z.string().uuid().optional()}).strict().parse(args);
+        const snapshot=this.agenda.snapshot();
+        let candidates=snapshot.items.filter(i=>!i.projectId||!snapshot.projects.find(p=>p.id===i.projectId)?.archived);
+        if(q.projectId)candidates=candidates.filter(i=>i.projectId===q.projectId);
+        if(q.query)candidates=candidates.filter(i=>i.title.includes(q.query!));
+        else {
+          const focus=this.store.get<{id:string;at:string;messageId?:string}>('agenda-focus','current');
+          const users=this.store.messages().filter(m=>m.role==='user').slice(-3);
+          candidates=focus&&Date.now()-Date.parse(focus.at)<86400000&&users.some(m=>m.id===focus.messageId)?candidates.filter(i=>i.id===focus.id):[];
+        }
+        const result:AgendaReference={status:candidates.length===1?'resolved':candidates.length?'ambiguous':'missing',candidates};
+        if(candidates.length===1)this.focus(candidates[0]);return result;
+      }
+      case 'query_project_memory':return this.memories.list(z.object({projectId:z.string().uuid()}).strict().parse(args).projectId);
+      case 'manage_project_memory': {
+        const data=z.object({operation:z.enum(['create','update','delete']),payload:z.string().max(8000)}).strict().parse(args);
+        const {id,...input}=z.record(z.unknown()).parse(JSON.parse(data.payload));
+        if(data.operation==='create'&&id!==undefined)throw new ApiError(400,'创建记忆不接受 id');
+        const recordId=data.operation==='create'?undefined:z.string().uuid().parse(id);
+        const message=this.store.messages().filter(m=>m.role==='user').at(-1);
+        if(!message)throw new ApiError(400,'没有用户消息，不能保存对话记忆');
+        return this.memories.mutate(data.operation,recordId,input,callId?`tool:${callId}`:undefined,message.id);
+      }
       case 'query_agenda': {
         const q=z.object({view:z.enum(['snapshot','calendar']),from:z.string().optional(),to:z.string().optional(),projectId:z.string().uuid().optional()}).strict().parse(args);
         if(q.view==='snapshot'){if(q.from||q.to||q.projectId)throw new ApiError(400,'snapshot 不接受筛选参数');return this.agenda.snapshot();}
@@ -29,7 +59,9 @@ export class ButlerTools {
       }
       case 'manage_agenda': {
         const data=z.object({operation:z.string(),payload:z.string().max(64000)}).strict().parse(args);
-        return this.agenda.mutate(data.operation,JSON.parse(data.payload),callId?`tool:${callId}`:undefined);
+        const result=this.agenda.mutate(data.operation,JSON.parse(data.payload),callId?`tool:${callId}`:undefined);
+        if(data.operation==='item.create'||data.operation==='item.update')this.focus(result as AgendaItem);
+        return result;
       }
       case 'get_runtime_status': z.object({}).strict().parse(args); return runtimeStatus(this.config);
       case 'dispatch_task': return this.tasks.create(args,callId ? `tool:${callId}` : undefined);
@@ -52,4 +84,5 @@ export class ButlerTools {
       default:throw new ApiError(400,'未知工具');
     }
   }
+  private focus(item:AgendaItem){this.store.put('agenda-focus','current',{id:item.id,at:new Date().toISOString(),messageId:this.store.messages().filter(m=>m.role==='user').at(-1)?.id});}
 }

@@ -6,6 +6,7 @@ import { useStore } from '../lib/store';
 import type { Executor, PetSize, Settings as SettingsType } from '../lib/types';
 import { useToast } from '../ui/toast';
 import { WorkspaceSettings } from './WorkspaceSettings';
+import { GettingStarted } from './GettingStarted';
 
 type Form = Omit<SettingsType, 'hasApiKey'> & { apiKey: string };
 const runtimes: { id: SettingsType['runtime']; label: string; hint: string }[] = [
@@ -79,9 +80,10 @@ export function Settings() {
   return (
     <div className="settings">
       <div className="settings-scroll">
+        <GettingStarted />
         <WorkspaceSettings />
         <section className="group">
-          <h4>大肥鱼的大脑</h4>
+          <h4 id="model-settings">大肥鱼的大脑</h4>
           <Segmented id="runtime" value={form.runtime} options={runtimes} onChange={v => set('runtime', v)} />
           <p className="hint">{runtimes.find(r => r.id === form.runtime)?.hint}</p>
           <label className="field"><span>DeepSeek API Key</span>

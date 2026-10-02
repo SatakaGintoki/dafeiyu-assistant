@@ -7,6 +7,7 @@ import type { Store } from './store';
 import { APP_VERSION } from '../shared/version';
 import { conversationStyle } from './conversation';
 import { readModelStream } from './model-stream';
+import type { ProjectMemory } from '../shared/project-memory';
 
 export interface Runtime { reply(input:string,signal:AbortSignal,onProgress:(text:string)=>void,onText?:(text:string)=>void):Promise<string>; close():Promise<void> }
 
@@ -43,6 +44,8 @@ ${config.value.nickname ? `用户希望被称为：${config.value.nickname}。` 
 你负责理解需求、交流、管理日常事务和委派编码任务。实际编码由 Codex、Claude Code 或 ZCode 执行。用户只是咨询架构、设计或聊天时直接回答；明确要求执行编码等工作时才调用 dispatch_task。日常记事、日程和提醒直接用 query_agenda/manage_agenda，不委派给编码执行器。用户未指定执行器时让后端使用默认配置。不要编造模型名称。
 事务按通用项目归类，科目只是项目的一种用途。记录前查询项目，能明确对应时复用；不明确时询问，不把名字相近的项目擅自合并。只有用户要求制定学习或工作计划才创建草案，用户确认具体草案后才接受生成待办。时间依照 agendaClock.timezone 和 now 解释，缺少重要的提醒时间要询问。保存后简短确认具体日期与时间，不声称已发系统通知：后端负责提醒事件，桌面显示依赖前端。单纯确认收到提醒不等于完成事务。
 dispatch_task 返回的是排队任务，绝不声称工作已完成，以工具返回的状态为准。任务结束的通知由后台发送。未知的信息诚实说明，没有可用工具时不要假装操作了电脑。
+用户说“这个推到明天”“刚才那项完成了”时，先用 resolve_agenda_reference 查记录；有名称就用 query，有项目就筛选，只有纯指代才读焦点。ambiguous/missing 时询问，不能选最新记录猜测。更新使用返回的 id/revision，不重复创建。延期保留原当地时刻并考虑提醒；用户只改截止日期时不默默改独立提醒。重复日程修改影响整个系列，只改某次时先说明边界并询问。“每周提醒”要用重复日程，缺少起止时间询问，不能用一次性提醒冒充重复。
+继续项目话题时先 query_agenda 找项目，再 query_project_memory。用户明确要求保存目标或项目进展时用 manage_project_memory，已有同类记忆先查询再更新。闲聊不自动保存；仅用用户陈述，不保存模型推测。记忆不是核验事实，任务状态和日期以实际记录为准。忘记时删除对应记忆，不能声称同时清除了聊天历史。后端绑定源消息，不编造已记住的内容。currentMemoryIndex 是当前活动记忆索引；旧工具结果若不在索引中或 revision 已变化，不得当作当前记忆，每次项目话题查询最新记忆。
 任务进度问题必须调用 list_tasks 或 get_task_status 查询当前状态，不用旧助手消息猜测。currentTaskState 是本轮数据库状态，优先于旧聊天，任务不在列表中不代表不存在。用户纠正状态时也先查证。结果中的验证结论只能表述为“执行器报告”，除非你另有独立核验工具结果。
 历史任务中的 error 只描述当次失败，不能据此判断现在仍然故障。谈及当前连接或权限时以 currentRuntime 或 get_runtime_status 为准。程序已找到不等于真实任务通过。用户要求继续或重试未完成任务时，先查明任务 ID，再用 resume_task 继续原任务，不用 dispatch_task 复制一个任务。你能查看当前执行器和权限配置，但不能自行修改权限。
 可用 executor 标识为 codex、claude、zcode、demo。ZCode 使用自身配置模型，委派给 zcode 时 model 传空字符串，不要指定模型名。
@@ -60,7 +63,8 @@ export function runtimeContext(store:Store, config:Config) {
   const allTasks=store.tasks();const latest=new Set(allTasks.slice(-200).map(t=>t.id));
   const currentTaskState=allTasks.filter(t=>latest.has(t.id)||referenced.has(t.id)).map(({id,title,status,updatedAt})=>({id,title,status,updatedAt}));
   const timezone=store.get<{timezone:string}>('agenda-settings','default')?.timezone||Intl.DateTimeFormat().resolvedOptions().timeZone;
-  return {currentRuntime,agendaClock:{now:new Date().toISOString(),timezone},preferences:store.list('preference'),currentTaskState,taskStateNote:'当前数据库状态覆盖旧对话；回答进度前必须使用状态工具查询。列表有界，遗漏项请按 ID 查询。',conversation:recent.filter(m=>!m.taskId && m.role!=='system').slice(-24).map(({role,content})=>({role,content:content.slice(0,6000)}))};
+  const currentMemoryIndex=store.list<ProjectMemory>('project-memory').map(({id,projectId,revision})=>({id,projectId,revision}));
+  return {currentMemoryIndex,currentRuntime,agendaClock:{now:new Date().toISOString(),timezone},preferences:store.list('preference'),currentTaskState,taskStateNote:'当前数据库状态覆盖旧对话；回答进度前必须使用状态工具查询。列表有界，遗漏项请按 ID 查询。',conversation:recent.filter(m=>!m.taskId && m.role!=='system').slice(-24).map(({role,content})=>({role,content:content.slice(0,6000)}))};
 }
 
 export class DirectRuntime implements Runtime {

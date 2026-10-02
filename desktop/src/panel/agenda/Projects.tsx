@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ProjectMemoryView } from '../ProjectMemory';
 import type { AgendaItem, AgendaProject, AgendaSnapshot } from '../../../../shared/agenda';
 import { useApp } from '../../context';
 import { ApiError } from '../../lib/api';
@@ -82,6 +83,7 @@ function ProjectDetail({ snapshot, project, onBack, onEdit, onNewItem, onOpenIte
         {!project?.archived && <button className="icon-btn primary" onClick={onNewItem} aria-label="在此项目新建" title="在此项目新建"><IconPlus size={18} /></button>}
       </div>
       {shown.map(item => <ItemRow key={item.id} item={item} snapshot={snapshot} showProject={false} onOpen={onOpenItem} />)}
+      {project && <ProjectMemoryView key={project.id} project={project} />}
       {!shown.length && <Empty><p>{filter === 'notes' ? '还没有笔记。' : filter === 'open' ? '没有未完成的事务。' : '还没有完成或取消的记录。'}</p></Empty>}
       {project && !project.archived && (
         <button className="btn ghost ag-archive" disabled={pending} onClick={() => {

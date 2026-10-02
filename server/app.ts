@@ -14,6 +14,9 @@ import { APP_VERSION } from '../shared/version';
 import { addWorkflows } from './workflows';
 import { AgendaService } from './agenda';
 import { addAgendaRoutes } from './agenda-routes';
+import { ProjectMemories } from './project-memory';
+import { addMemoryRoutes } from './memory-routes';
+import { checkModelConnection } from './connection-check';
 
 export interface AppOptions { root:string; dataDir?:string; token?:string; runner?:Runner; runtimeFactory?:(config:Config,store:Store,tools:ButlerTools)=>Runtime; origins?:string[] }
 function authorized(req:Request,token:string) { const given=req.headers.authorization?.replace(/^Bearer /,'') || ''; const a=Buffer.from(given),b=Buffer.from(token);return a.length===b.length && timingSafeEqual(a,b); }
@@ -41,7 +44,8 @@ export function createApp(options:AppOptions) {
   };
   const tasks=new TaskManager(store,config,options.runner || new CliRunner(config),emit);
   const agenda=new AgendaService(store,emit);
-  const tools=new ButlerTools(tasks,store,config,agenda);
+  const memories=new ProjectMemories(store,emit,text=>config.redact(text));
+  const tools=new ButlerTools(tasks,store,config,agenda,memories);
   const app=express(); app.disable('x-powered-by');
   const origins=new Set(options.origins || ['http://127.0.0.1:5173','http://localhost:5173']);
   app.use((req,res,next)=>{
@@ -67,9 +71,17 @@ export function createApp(options:AppOptions) {
   });
   app.use(express.json({limit:'128kb'}));
   addAgendaRoutes(app,agenda);
+  addMemoryRoutes(app,memories);
   addWorkflows(app,store,config,tasks,()=>busy,async()=>{await runtime?.close();runtime=undefined;emit('settings.updated',config.value);});
   app.get('/api/v1/state',(_req,res)=>res.json({messages:store.messages().slice(-200),tasks:store.tasks().slice(-200),settings:config.value,executors:executorCatalog(config),busy,petState,chatStream,chatProgress}));
   app.get('/api/v1/settings',(_req,res)=>res.json(config.value));
+  let checkingConnection=false;
+  app.post('/api/v1/connection-check',async(req,res)=>{
+    z.object({}).strict().parse(req.body||{});
+    if(checkingConnection||busy)throw new ApiError(409,'请等待当前检查或对话结束');
+    checkingConnection=true;
+    try{res.json(await checkModelConnection(config));}finally{checkingConnection=false;}
+  });
   app.get('/api/v1/openapi.json',(_req,res)=>res.json(openApiDocument));
   app.patch('/api/v1/settings',async(req,res)=>{
     if(busy || store.tasks().some(t=>['queued','running','cancelling'].includes(t.status)))throw new ApiError(409,'请等待当前对话和任务结束后修改设置');

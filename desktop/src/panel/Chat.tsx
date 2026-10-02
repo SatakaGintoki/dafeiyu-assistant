@@ -12,7 +12,7 @@ import { StatusIcon, statusLabel } from './StatusIcon';
 import { permissionBlocked } from '../lib/activity';
 import { messageDisplay } from '../lib/message-display';
 
-const suggestions = ['你都能帮我做什么？', '帮我看看当前工作目录的项目结构', '写个脚本整理下载文件夹', '最近的任务进展如何？'];
+const suggestions = ['你都能帮我做什么？', '帮我记一项待办', '这周有哪些事情还没完成？', '最近的任务进展如何？'];
 
 function time(iso: string) {
   const d = new Date(iso);
@@ -124,7 +124,8 @@ export function Chat({ onOpenTask, onSettings, active }: { onOpenTask: (id: stri
           <motion.div className="chat-empty" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
             <img src={SPRITES.front.src} alt="" draggable={false} />
             <h3>今天想让大肥鱼做点什么？</h3>
-            <p>聊天、查进度，或者把写代码的活交给 Codex / Claude Code。</p>
+            <p>随手记待办、设置提醒、继续项目，或者把写代码的活交给执行器。</p>
+            <button className="btn" onClick={onSettings}>第一次使用：配置模型并体验提醒</button>
             <div className="chips">
               {suggestions.map((s, i) => (
                 <motion.button key={s} className="chip" onClick={() => void send(s)} disabled={offline}

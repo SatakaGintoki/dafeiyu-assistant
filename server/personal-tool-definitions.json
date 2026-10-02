@@ -1,0 +1,5 @@
+[
+ {"name":"resolve_agenda_reference","description":"修改事务前查真实记录。提供标题关键词或项目 ID；仅当用户纯粹说刚才那个、这个时省略 query，读取最近焦点。ambiguous 时必须让用户选择，不猜测。","parameters":{"type":"object","properties":{"query":{"type":"string"},"projectId":{"type":"string"}},"required":[],"additionalProperties":false}},
+ {"name":"query_project_memory","description":"读取指定事务项目的目标、进展、下一步与背景，不覆盖真实事务状态。","parameters":{"type":"object","properties":{"projectId":{"type":"string"}},"required":["projectId"],"additionalProperties":false}},
+ {"name":"manage_project_memory","description":"用户要求记住、更新项目进展或删除记忆时使用。payload 为 JSON 字符串：create 含 projectId/kind/content，update 含 id/revision 与 kind/content，delete 含 id/revision。kind 为 goal/progress/next/context。来源自动绑定用户消息，不保存推测或凭据。","parameters":{"type":"object","properties":{"operation":{"type":"string","enum":["create","update","delete"]},"payload":{"type":"string"}},"required":["operation","payload"],"additionalProperties":false}}
+]
