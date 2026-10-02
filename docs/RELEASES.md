@@ -1,6 +1,6 @@
 # 版本管理与回退
 
-仓库使用 Git 管理，源码和发行标签按发布流程推送至 GitHub。`v0.1.0` 保留接入 Git 前的代码基线；`release/v0.2.0` 是历史分支名称，不代表当前版本。当前发行版本为 `v0.2.11`，包含流式回复、细分执行状态、事务本和持久提醒。源码与标签已推送至 GitHub。
+仓库使用 Git 管理，源码和发行标签按发布流程推送至 GitHub。`v0.1.0` 保留接入 Git 前的代码基线；`release/v0.2.0` 是历史分支名称，不代表当前版本。当前发行版本为 `v0.2.12`，包含完整常见 Markdown 渲染、流式回复、细分执行状态、事务本和持久提醒。源码与标签已推送至 GitHub。
 
 尚无公开稳定版分发。本机安装目录部署成功不等于 NSIS 安装包构建成功；近期 NSIS 构建曾失败，不应上传中间 EXE。公开前按 `PUBLIC-PREVIEW.md` 逐项验收。
 
@@ -33,3 +33,13 @@
 - Electron 冒烟最初一次因设置页异步加载与固定 900ms 等待产生竞态失败；改为有界条件等待，未改变应用实现，修正提交 978ae77。重新验证：https://github.com/SatakaGintoki/zhuochong/actions/runs/36904245997（成功）。
 - ZIP SHA256：8f391eb5ddfd234e8d0f3c1c77c9a087425cc54c5bbfeb93db6228526c081b9f。
 - 包含 93 项后端和 17 项前端测试，以及隔离浏览器流式流程验收。直连支持文字增量；当前 Harness SDK 展示阶段并在结束后显示全文。
+
+## v0.2.12 Windows 预览版
+
+- Release：https://github.com/SatakaGintoki/zhuochong/releases/tag/v0.2.12
+- 发布源码：bc181d778acb27c42d7f05b5417e68bf5ed5f8c4。
+- Windows 验证：https://github.com/SatakaGintoki/zhuochong/actions/runs/36978262380（成功）。
+- Windows 打包、启动验证和发布：https://github.com/SatakaGintoki/zhuochong/actions/runs/36978291907（成功）。
+- ZIP SHA256：fb98610725ed0d40efbb1e8b65e53d4d57e7949d57c858986ec4cc5f1800cf5e。
+- 使用 react-markdown + remark-gfm 渲染聊天、流式草稿、历史消息和任务详情。旧压平通知只在仍有匹配成功结果时恢复预览，不修改数据库历史；缺失原结果无法完全恢复。
+- 前端 19 项、后端 93 项测试通过；隔离浏览器验证标题、加粗/斜体、表格、代码、引用、勾选列表、历史重载和流式输出。
