@@ -1,6 +1,6 @@
 # 大肥鱼管家
 
-[![Windows 验收](https://github.com/SatakaGintoki/zhuochong/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/SatakaGintoki/zhuochong/actions/workflows/verify.yml) · [下载预览版](https://github.com/SatakaGintoki/zhuochong/releases) · [反馈问题](https://github.com/SatakaGintoki/zhuochong/issues/new/choose)
+[![Windows 验收](https://github.com/SatakaGintoki/dafeiyu-assistant/actions/workflows/verify.yml/badge.svg?branch=main)](https://github.com/SatakaGintoki/dafeiyu-assistant/actions/workflows/verify.yml) · [下载预览版](https://github.com/SatakaGintoki/dafeiyu-assistant/releases) · [反馈问题](https://github.com/SatakaGintoki/dafeiyu-assistant/issues/new/choose)
 
 一只常驻桌面的蓝色小鲸鱼，也是你的 AI 工作与日常事务搭档。用聊天记录待办和提醒，把编码交给本机执行器，随时查看进度，失败后沿原任务继续。
 
@@ -8,7 +8,7 @@
 
 *界面预览使用隔离演示数据，展示桌宠与聊天面板。*
 
-源码版本 **0.2.13 · 开发中**，当前可下载版本为 **0.2.12 · 早期预览**。[下载 Windows x64 预览版](https://github.com/SatakaGintoki/zhuochong/releases/tag/v0.2.12)。提供压缩包，解压全部文件后运行“大肥鱼管家.exe”；不是安装器，也未签名。不需要另装 Node.js；真实工作仍需个人模型凭据与已登录的执行器。
+源码版本 **0.2.13 · 开发中**，当前可下载版本为 **0.2.12 · 早期预览**。[下载 Windows x64 预览版](https://github.com/SatakaGintoki/dafeiyu-assistant/releases/tag/v0.2.12)。提供压缩包，解压全部文件后运行“大肥鱼管家.exe”；不是安装器，也未签名。不需要另装 Node.js；真实工作仍需个人模型凭据与已登录的执行器。
 
 若 Windows 阻止启动，请查看系统提示和来源信息；不要关闭系统保护。尚无正式稳定版，已知限制见下文及发行说明。
 
@@ -68,7 +68,7 @@
 
 ## 下载后怎样使用
 
-1. 从 [Releases](https://github.com/SatakaGintoki/zhuochong/releases/tag/v0.2.12) 下载 `Dafeiyu-0.2.12-windows-x64.zip`，完整解压到独立文件夹，运行“大肥鱼管家.exe”。发行包自带后端和 Node.js。
+1. 从 [Releases](https://github.com/SatakaGintoki/dafeiyu-assistant/releases/tag/v0.2.12) 下载 `Dafeiyu-0.2.12-windows-x64.zip`，完整解压到独立文件夹，运行“大肥鱼管家.exe”。发行包自带后端和 Node.js。
 2. 双击角色打开面板，在设置中选择“演示”，无需 API Key 即可体验队列；演示不会实际写代码。
 3. 真实聊天配置个人 DeepSeek API Key；编码任务另外需要安装并登录 Codex、Claude Code 或 ZCode 中的一个。日常事务使用管家自身工具。
 
