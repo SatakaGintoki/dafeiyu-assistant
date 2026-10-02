@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 下载 Windows 预览版
+    url: https://github.com/SatakaGintoki/zhuochong/releases
+    about: 下载完整 ZIP，解压全部文件后启动。
+  - name: GitHub Actions 失败邮件说明
+    url: https://github.com/SatakaGintoki/zhuochong/blob/main/docs/GITHUB-ACTIONS.md
+    about: 查看已知失败原因、当前检查状态和日志位置。

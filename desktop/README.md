@@ -4,7 +4,7 @@ DeepSeek 大肥鱼（鲸鱼娘）形象的桌面宠物，Electron + React 19 + V
 
 Windows 桌面交付版自带后端和 Node.js，双击桌面“大肥鱼管家”即可使用。安装包、免安装部署和数据目录详见 `../docs/WINDOWS-APP.md`。以下命令和独立后端窗口说明适用于开发版。
 
-角色立绘来自 [1190fasheqi/dafeiyu-pet](https://github.com/1190fasheqi/dafeiyu-pet)（MIT）：`src/assets/{front,side,back}.png` 三张原图**未做任何重绘或改色**，所有动画都由位移、缩放、旋转、CSS keyframes 与叠加层完成。
+角色立绘来自 [1190fasheqi/dafeiyu-pet](https://github.com/1190fasheqi/dafeiyu-pet)（MIT）：`src/assets/{front,side,back}.png` 三张原图**未做任何重绘或改色**，原三视图动画使用位移、缩放、旋转、CSS keyframes 与叠加层；用户提供的眨眼、点头、思考逐帧素材另见 [素材说明](assets/CREDITS.md)。
 
 ## 运行
 
@@ -38,7 +38,7 @@ npm run dev:web  # http://127.0.0.1:5173
 
 | 参数 | 作用 |
 | --- | --- |
-| `?panel=chat\|tasks\|settings` | 直接展开管家面板 |
+| `?panel=chat\|tasks\|agenda\|settings` | 直接展开管家面板 |
 | `?pet=idle\|thinking\|working\|waiting\|celebrate\|error\|sleeping\|offline\|dragging\|walking` | 强制宠物情绪，方便看动画 |
 
 ### Electron 二进制
